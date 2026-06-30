@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "PowerShell(docker --version)",
+      "PowerShell(wsl --version)",
+      "PowerShell(\"--- contents ---\")",
+      "PowerShell(\"--- docker ---\")",
+      "PowerShell(\"--- wsl ---\")",
+      "PowerShell(\"--- git ---\")",
+      "PowerShell(wsl -e bash -lc \"docker --version; echo '---'; docker compose version; echo '---ps---'; docker ps; echo '---pwd---'; pwd; echo '---node---'; node --version\")"
+    ]
+  }
+}

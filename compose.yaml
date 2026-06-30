@@ -1,0 +1,13 @@
+services:
+  playwright:
+    build:
+      context: .
+    environment:
+      BASE_URL: ${BASE_URL:-https://erp.jdserveraccess.in}
+      ERP_USER: ${ERP_USER:-Administrator}
+      ERP_PASSWORD: ${ERP_PASSWORD:-admin}
+      CI: "true"
+    volumes:
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+    init: true

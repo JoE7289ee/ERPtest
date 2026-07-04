@@ -39,3 +39,27 @@ npm test
 Test files live under `tests/`. The current suite logs in to ERPNext as
 `Administrator` and asserts the Frappe desk loads (`/app` on newer versions,
 `/desk` on older ones).
+
+## Jewelima suite
+
+The suite covers every custom feature (specs run serially — they share live masters):
+
+| Spec | Covers |
+| --- | --- |
+| `01-smoke` | all 29 Jewelima desk pages render without JS errors |
+| `02-setup-masters` | Design Types (sizes, green defaults, 🔒 guards), Types & Salesmen (add/retire/restore), Warehouse flags, Order Settings prefill |
+| `03-purchase-melt` | Purchase (Gram/Carat split, auto-row, PR posts), Melting (tick-to-add, strict out, 18KPG blend, over-stock block) |
+| `04-place-order` | design lines (type/size/defaults), Split, purity variants (red/black family logic), placing an order, due/customer dates |
+| `05-cad` | CAD budgets dialog, routing + collect gates, finalize (CAD Jobs), post-finalize flow |
+| `06-production` | Transfer batches + Cards picker, Assign/Collect at CAD, Job Work bench restriction |
+| `07-design-bank` | Add Design (Check / Auto-number / tags), Retire Design guarded delete |
+
+Auth happens once (`tests/auth.setup.ts` → `.auth/user.json`); each spec seeds and
+cleans its own data through the app's whitelisted APIs, so the suite is safe to
+re-run — but point it at a TEST site, not production (it posts real Purchase
+Receipts / Stock Entries / Orders).
+
+```sh
+BASE_URL=http://development.localhost:8000 ERP_USER=Administrator ERP_PASSWORD=admin npm test
+npx playwright test tests/05-cad.spec.ts   # one area only
+```

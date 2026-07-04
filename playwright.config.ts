@@ -2,10 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  fullyParallel: true,
+  // Specs share live masters (benches, warehouses); run them one file at a time.
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  timeout: 90_000,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.BASE_URL || 'https://erp.jdserveraccess.in',
@@ -13,6 +15,14 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' },
+      dependencies: ['setup'],
+      testIgnore: /auth\.setup\.ts/,
+    },
+  ],
   outputDir: 'test-results',
 });

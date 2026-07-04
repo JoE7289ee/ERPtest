@@ -6,3 +6,4 @@ blob-report/
 npm-debug.log*
 ERPtest-main.tar.gz
 .claude/
+.auth/

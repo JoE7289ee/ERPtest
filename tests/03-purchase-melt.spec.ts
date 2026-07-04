@@ -35,7 +35,7 @@ test('Melting: required grams + tick stock + strict out -> melt to 18KPG', async
     { item: 'Standard Gold 998', weight: 120 },
     { item: 'Alloy', weight: 60 },
   ]);
-  await page.locator('.page-actions .btn', { hasText: 'Reset' }).click(); // reload stock panel
+  await gotoApp(page, 'melt-gold'); // re-open -> stock panel reloads with the new stock
   await setLink(page, 'input[data-fieldname="out"]', '18KPG');
   await page.locator('input[data-fieldname="required"]').fill('100');
   // materials table starts EMPTY
@@ -59,6 +59,7 @@ test('Melting: over-stock is flagged and blocked', async ({ page }) => {
   await setLink(page, 'input[data-fieldname="out"]', '18KPG');
   await page.locator('input[data-fieldname="required"]').fill('50');
   await page.locator('.ml-stock-cb[data-item="Standard Gold 999"]').check();
+  await page.locator('.ml-strict').uncheck(); // strict-out would rescale the blend to the required grams
   const row = page.locator('.ml-body tr').first();
   const avail = parseFloat((await row.locator('td.avail').innerText()) || '0');
   await row.locator('input.ml-wt').fill(String(avail + 500)); // way past stock

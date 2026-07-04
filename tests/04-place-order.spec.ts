@@ -78,7 +78,8 @@ test('place a real order end-to-end', async ({ page }) => {
   await page.locator('input[data-fieldname="days"]').fill('10');
   await page.locator('.page-actions .btn-primary', { hasText: 'Place Order' }).click();
   await expect(page.locator('.modal:visible')).toContainText('Order placed', { timeout: 30_000 });
-  const orderNo = await page.locator('input[data-fieldname="order_no"]').inputValue();
+  const modalText = await page.locator('.modal:visible .modal-body').innerText();
+  const orderNo = (modalText.match(/E\d+/) || [''])[0]; // "E0005 created with N Order Bag(s)".
   expect(orderNo).toMatch(/^E\d+/);
   await page.keyboard.press('Escape');
   // due date landed on the Job Order (today + 10)

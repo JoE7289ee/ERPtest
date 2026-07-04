@@ -24,7 +24,8 @@ test('CAD line: dialog -> order places without a design', async ({ page }) => {
   await row.locator('input[type="number"]').fill('1');
   await page.locator('.page-actions .btn-primary', { hasText: 'Place Order' }).click();
   await expect(page.locator('.modal:visible')).toContainText('Order placed', { timeout: 30_000 });
-  const orderNo = await page.locator('input[data-fieldname="order_no"]').inputValue();
+  const modalText = await page.locator('.modal:visible .modal-body').innerText();
+  const orderNo = (modalText.match(/E\d+/) || [''])[0]; // "E0005 created with N Order Bag(s)".
   await page.keyboard.press('Escape');
   bagName = `${orderNo}.1.1`;
   const bag = await frappeCall(page, 'frappe.client.get', { doctype: 'Order Bag', name: bagName });

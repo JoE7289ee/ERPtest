@@ -10,7 +10,13 @@ setup('authenticate', async ({ page }) => {
   await page.locator('#login_email').fill(USER);
   await page.locator('#login_password').fill(PASSWORD);
   await page.locator('.btn-login').click();
+  // login lands on the desk (/app new, /desk old). The desk splash can be flaky on a
+  // dev bench, but the session cookie is already set — verify via the API instead.
   await page.waitForURL(/\/(app|desk)\b/, { timeout: 30_000 });
-  await expect(page.locator('.navbar').first()).toBeVisible({ timeout: 30_000 });
+  const who = await page.evaluate(async () => {
+    const r = await fetch('/api/method/frappe.auth.get_logged_user', { headers: { 'X-Frappe-CSRF-Token': (window as any).frappe?.csrf_token || '' } });
+    return (await r.json()).message;
+  });
+  expect(who).not.toBe('Guest');
   await page.context().storageState({ path: '.auth/user.json' });
 });

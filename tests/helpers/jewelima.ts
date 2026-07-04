@@ -3,9 +3,19 @@ import { expect, Page } from '@playwright/test';
 
 /** Open a desk route and wait for Frappe to be ready. */
 export async function gotoApp(page: Page, route: string) {
-  await page.goto(`/app/${route}`);
+  // this Frappe build serves the desk at /desk (and redirects /app there)
+  await page.goto(`/desk/${route}`);
   await page.waitForFunction(() => (window as any).frappe && (window as any).frappe.boot, undefined, { timeout: 30_000 });
-  await page.waitForTimeout(400); // page JS builds after route
+  // wait for the page wrapper; a stuck splash gets one reload
+  const wrapper = page.locator(`#page-${route}`);
+  try {
+    await wrapper.waitFor({ state: 'visible', timeout: 15_000 });
+  } catch {
+    await page.reload();
+    await page.waitForFunction(() => (window as any).frappe && (window as any).frappe.boot, undefined, { timeout: 30_000 });
+    await wrapper.waitFor({ state: 'visible', timeout: 20_000 });
+  }
+  await page.waitForTimeout(400); // page JS finishes building after route
 }
 
 /** Call a whitelisted server method through the app's own session. */
@@ -24,9 +34,15 @@ export async function setLink(page: Page, inputSelector: string, value: string) 
   const input = page.locator(inputSelector).first();
   await input.click();
   await input.fill(value);
-  const item = page.locator('.awesomplete:visible li', { hasText: value }).first();
-  await expect(item).toBeVisible({ timeout: 10_000 });
-  await item.click();
+  // frappe's link dropdown exposes ARIA options; click the exact match
+  const option = page.getByRole('option', { name: new RegExp(`^\\s*${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).first();
+  try {
+    await option.waitFor({ state: 'visible', timeout: 8_000 });
+    await option.click();
+  } catch {
+    await input.press('Enter'); // first option is pre-selected
+  }
+  await expect(input).toHaveValue(new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: 8_000 });
 }
 
 /** Wait for a green frappe toast containing the text. */

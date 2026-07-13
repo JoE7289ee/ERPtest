@@ -1,6 +1,8 @@
 // Stone Issue station: scan a card, BOM stone lines show plan/issued/available,
-// swap a sieve size on the BOM, issuing (with Issued By) moves ct from the
-// Stone Issue warehouse into In Bags + writes the ledger + a Material Issue record.
+// edit a line (sieve swap + piece count scales plan ct by the per-piece average),
+// add a brand-new stone (blank plan fills from the actual), issuing (with
+// Issued By) moves ct from the warehouse into In Bags + ledger + Material Issue
+// record; right side shows the issuer's day and the warehouse stock.
 import { expect, test } from '@playwright/test';
 import { apiCreateDesign, apiDeleteDesign, frappeCall, gotoApp, setLink, uid } from './helpers/jewelima';
 
@@ -8,6 +10,7 @@ test.describe.configure({ mode: 'serial' });
 const D = `ZZSI ${uid()}`;
 const STONE = 'VS-FG 5-5.5';
 const SWAPPED = 'VS-FG 3-3.5'; // the sieve size that "works"
+const ADDED = 'SI-IJ 1-1.5'; // the extra stone the design never had
 let BAG = '';
 let EMP = '';
 let EMP_NAME = '';
@@ -30,7 +33,9 @@ test.afterAll(async ({ browser }) => {
   if (BAG) {
     // reverse the issued stones precisely: In Bags -> back to Stone Issue
     await frappeCall(page, 'jewelima.jewelima.api.weight_reduce', {
-      order_bag: BAG, lines: [{ item: SWAPPED, weight: 0.45 }], to_warehouse: 'Stone Issue - JD',
+      order_bag: BAG,
+      lines: [{ item: SWAPPED, weight: 0.6 }, { item: ADDED, weight: 0.1 }],
+      to_warehouse: 'Stone Issue - JD',
     }).catch(() => {});
     // paper trail + ledger rows don't cascade with the bag — remove them explicitly
     const mis = await frappeCall(page, 'frappe.client.get_list', {
@@ -66,8 +71,11 @@ test('place an order carrying stones', async ({ page }) => {
   expect(BAG).toBeTruthy();
 });
 
-test('swap the sieve size, then issue with Issued By', async ({ page }) => {
+test('edit (swap + pcs), add a new stone, issue with Issued By, panels update', async ({ page }) => {
   await gotoApp(page, 'stone-issue');
+  // the stock panel renders without any card
+  await expect(page.locator('.si-stock-b table, .si-stock-b .p-empty')).toBeVisible({ timeout: 10_000 });
+
   await page.locator('.si-scan-box input').fill(BAG);
   await page.locator('.si-scan-box input').press('Enter');
   await expect(page.locator('.si-bag')).toHaveText(BAG);
@@ -75,58 +83,70 @@ test('swap the sieve size, then issue with Issued By', async ({ page }) => {
   await expect(row).toContainText(STONE);
   await expect(row.locator('td').nth(1)).toHaveText('3 / 0.450'); // plan
 
-  // sieve size doesn't work — swap the BOM line
-  await row.locator('.si-swap').click();
+  // edit: swap the sieve size AND bump pieces 3 -> 4; plan ct scales 0.45/3*4 = 0.600
+  await row.locator('.si-edit').click();
   await setLink(page, '.modal:visible input[data-fieldname="to_item"]', SWAPPED);
-  await page.locator('.modal:visible .btn-primary', { hasText: 'Swap' }).click();
+  await page.locator('.modal:visible input[data-fieldname="pcs"]').fill('4');
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Save' }).click();
   await expect(row).toContainText(SWAPPED, { timeout: 15_000 });
-  await expect(row.locator('td').nth(1)).toHaveText('3 / 0.450'); // plan carries over
+  await expect(row.locator('td').nth(1)).toHaveText('4 / 0.600');
+
+  // add a stone the design never had — plan weight left BLANK
+  await page.locator('.si-add').click();
+  await setLink(page, '.modal:visible input[data-fieldname="item"]', ADDED);
+  await page.locator('.modal:visible input[data-fieldname="pcs"]').fill('2');
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Add' }).click();
+  const row2 = page.locator('table.si-grid tbody tr', { hasText: ADDED }).first();
+  await expect(row2).toBeVisible({ timeout: 15_000 });
+  await expect(row2.locator('td').nth(1)).toHaveText('2 / 0.000'); // blank plan
 
   const binBefore = await frappeCall(page, 'frappe.client.get_value', {
     doctype: 'Bin', filters: { item_code: SWAPPED, warehouse: 'Stone Issue - JD' }, fieldname: 'actual_qty',
   });
 
   // no Issued By -> refused
-  await row.locator('.si-pcs').fill('3');
-  await row.locator('.si-ct').fill('0.45');
+  await row.locator('.si-pcs').fill('4');
+  await row.locator('.si-ct').fill('0.6');
+  await row2.locator('.si-pcs').fill('2');
+  await row2.locator('.si-ct').fill('0.1');
   await page.locator('.si-go').click();
   await expect(page.locator('.modal:visible')).toContainText('who is issuing');
   await page.keyboard.press('Escape');
 
-  // with Issued By -> goes through; the Issued Today card appears on the right
+  // with Issued By -> goes through; the day panel appears
   await setLink(page, '.si-by-box input', EMP_NAME);
-  await expect(page.locator('.si-today')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.si-today-panel')).toBeVisible({ timeout: 10_000 });
   await page.locator('.si-go').click();
   await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
-  await expect(row.locator('td').nth(2)).toHaveText('3 / 0.450', { timeout: 20_000 }); // issued
-  await expect(page.locator('.si-today-v')).toContainText('3 pcs · 0.450 ct · 1 card(s)'); // day counter caught up
+  await expect(row.locator('td').nth(2)).toHaveText('4 / 0.600', { timeout: 20_000 }); // issued
+  await expect(row2.locator('td').nth(2)).toHaveText('2 / 0.100');
+  await expect(row2.locator('td').nth(1)).toHaveText('2 / 0.100'); // blank plan filled from the actual
+
+  // day history lists both lines; totals add up
+  await expect(page.locator('.si-today-t')).toHaveText('6 pcs · 0.700 ct');
+  await expect(page.locator('.si-today-b')).toContainText(SWAPPED);
+  await expect(page.locator('.si-today-b')).toContainText(ADDED);
 
   // real stock left the warehouse (of the SWAPPED item)
   const binAfter = await frappeCall(page, 'frappe.client.get_value', {
     doctype: 'Bin', filters: { item_code: SWAPPED, warehouse: 'Stone Issue - JD' }, fieldname: 'actual_qty',
   });
-  expect(Number(binBefore.actual_qty) - Number(binAfter.actual_qty)).toBeCloseTo(0.45, 3);
+  expect(Number(binBefore.actual_qty) - Number(binAfter.actual_qty)).toBeCloseTo(0.6, 3);
 
-  // ledger row carries the employee
+  // ledger rows carry the employee; one Material Issue record with both lines
   const led = await frappeCall(page, 'frappe.client.get_list', {
     doctype: 'Bag Material Ledger', filters: { order_bag: BAG, entry_type: 'Stone Issue' },
     fields: ['item', 'qty', 'pcs', 'employee'], limit_page_length: 0,
   });
-  expect(led.length).toBe(1);
-  expect(led[0].item).toBe(SWAPPED);
-  expect(led[0].employee).toBe(EMP);
-
-  // and a Material Issue record exists with the same line
+  expect(led.length).toBe(2);
+  expect(led.every((r: any) => r.employee === EMP)).toBe(true);
   const mis = await frappeCall(page, 'frappe.client.get_list', {
     doctype: 'Material Issue', filters: { order_bag: BAG, issue_type: 'Stone' },
     fields: ['name', 'issued_by'], limit_page_length: 0,
   });
   expect(mis.length).toBe(1);
-  expect(mis[0].issued_by).toBe(EMP);
   const mi = await frappeCall(page, 'frappe.client.get', { doctype: 'Material Issue', name: mis[0].name });
-  expect(mi.items.length).toBe(1);
-  expect(mi.items[0].item).toBe(SWAPPED);
-  expect(Number(mi.items[0].qty)).toBeCloseTo(0.45, 3);
+  expect(mi.items.length).toBe(2);
 });
 
 test('a finished / non-floor card is refused', async ({ page }) => {

@@ -44,6 +44,9 @@ test('Split divides qty across twin lines', async ({ page }) => {
   await page.locator('.modal:visible .btn-primary', { hasText: 'Split' }).click();
   const rows = page.locator('table.po-grid tbody tr', { hasText: D });
   await expect(rows).toHaveCount(2);
+  // both bags must paint GREEN (complete lines), not red — the twin's design lands async
+  await expect(rows.nth(0).locator('.po-num')).toHaveClass(/ok/);
+  await expect(rows.nth(1).locator('.po-num')).toHaveClass(/ok/, { timeout: 10_000 });
 });
 
 test('New (purity variant) picker: red creates, family shows black', async ({ page }) => {

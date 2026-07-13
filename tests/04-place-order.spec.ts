@@ -81,6 +81,7 @@ test('Materials button turns yellow after a BOM edit, Reset clears it', async ({
   const matBtn = row.locator('button', { hasText: 'Materials' });
   await expect(row).toContainText('RING', { timeout: 15_000 });
   await expect(matBtn).not.toHaveClass(/po-mat-edited/);
+  await expect(row.locator('button', { hasText: 'Reset' })).toBeHidden(); // Reset only shows once edited
   // edit the line's BOM: bump the gold weight and Apply
   await matBtn.click();
   const dlg = page.locator('.modal:visible');

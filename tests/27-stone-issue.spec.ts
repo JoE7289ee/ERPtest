@@ -109,6 +109,12 @@ test('edit (swap + pcs), add a new stone, issue with Issued By, panels update', 
   await row.locator('.si-ct').fill('0.6');
   await row2.locator('.si-pcs').fill('2');
   await row2.locator('.si-ct').fill('0.1');
+  // bottom strip adds up by bucket while typing
+  await expect(page.locator('.si-strip')).toBeVisible();
+  await expect(page.locator('.si-strip-tot')).toHaveText('6 / 0.700');
+  await expect(page.locator('.si-buckets .b', { hasText: 'DMD' })).toContainText('6 / 0.700'); // both lines are diamonds
+  await page.screenshot({ path: 'test-results/stone-issue-strip.png' });
+
   await page.locator('.si-go').click();
   await expect(page.locator('.modal:visible')).toContainText('who is issuing');
   await page.keyboard.press('Escape');

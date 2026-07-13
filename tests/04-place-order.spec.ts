@@ -71,10 +71,46 @@ test('New (purity variant) picker: red creates, family shows black', async ({ pa
   await page.keyboard.press('Escape');
 });
 
+test('Materials button turns yellow after a BOM edit, Reset clears it', async ({ page }) => {
+  await gotoApp(page, 'place-order');
+  await setLink(page, 'table.po-grid tbody tr >> nth=0 >> input[data-fieldname="design"]', D);
+  const row = page.locator('table.po-grid tbody tr').first();
+  const matBtn = row.locator('button', { hasText: 'Materials' });
+  await expect(row).toContainText('RING', { timeout: 15_000 });
+  await expect(matBtn).not.toHaveClass(/po-mat-edited/);
+  // edit the line's BOM: bump the gold weight and Apply
+  await matBtn.click();
+  const dlg = page.locator('.modal:visible');
+  await dlg.locator('.grid-row .btn-open-row, .grid-row .edit-grid-row').first().click(); // pencil -> row detail
+  await dlg.locator('input[data-fieldname="weight"]:visible').first().fill('6');
+  await dlg.locator('.grid-collapse-row:visible, .grid-row-open .grid-collapse-row').first().click(); // chevron closes the row editor
+  await dlg.locator('.btn-primary', { hasText: 'Apply' }).click();
+  await expect(matBtn).toHaveClass(/po-mat-edited/); // yellow
+  // line Reset re-pulls the design BOM -> back to normal
+  await row.locator('button', { hasText: 'Reset' }).click();
+  await expect(matBtn).not.toHaveClass(/po-mat-edited/, { timeout: 10_000 });
+});
+
+test('Party and Days > 0 are mandatory to place an order', async ({ page }) => {
+  await gotoApp(page, 'place-order');
+  await setLink(page, 'table.po-grid tbody tr >> nth=0 >> input[data-fieldname="design"]', D);
+  await page.locator('table.po-grid tbody tr').first().locator('input[type="number"]').fill('1');
+  // no Party, no Days -> Party guard fires first
+  await page.locator('.page-actions .btn-primary', { hasText: 'Place Order' }).click();
+  await expect(page.locator('.modal:visible')).toContainText('Pick the Party');
+  await page.keyboard.press('Escape');
+  // Party set, Days still 0 -> Days guard
+  await setLink(page, 'input[data-fieldname="customer"]', 'JD Stock');
+  await page.locator('.page-actions .btn-primary', { hasText: 'Place Order' }).click();
+  await expect(page.locator('.modal:visible')).toContainText('Days must be more than 0');
+  await page.keyboard.press('Escape');
+});
+
 test('place a real order end-to-end', async ({ page }) => {
   await gotoApp(page, 'place-order');
   await setLink(page, 'table.po-grid tbody tr >> nth=0 >> input[data-fieldname="design"]', D);
   await page.locator('table.po-grid tbody tr').first().locator('input[type="number"]').fill('1');
+  await setLink(page, 'input[data-fieldname="customer"]', 'JD Stock');
   await page.locator('input[data-fieldname="days"]').fill('10');
   await page.locator('.page-actions .btn-primary', { hasText: 'Place Order' }).click();
   await expect(page.locator('.modal:visible')).toContainText('Order placed', { timeout: 30_000 });

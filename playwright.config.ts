@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 90_000,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.BASE_URL || 'https://erp.jdserveraccess.in',
+    baseURL: process.env.BASE_URL || 'http://development.localhost:8000', // set BASE_URL=https://erp.jdserveraccess.in to test the live server
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',

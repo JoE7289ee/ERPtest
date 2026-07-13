@@ -93,11 +93,13 @@ test('swap the sieve size, then issue with Issued By', async ({ page }) => {
   await expect(page.locator('.modal:visible')).toContainText('who is issuing');
   await page.keyboard.press('Escape');
 
-  // with Issued By -> goes through
+  // with Issued By -> goes through; the Issued Today card appears on the right
   await setLink(page, '.si-by-box input', EMP_NAME);
+  await expect(page.locator('.si-today')).toBeVisible({ timeout: 10_000 });
   await page.locator('.si-go').click();
   await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
   await expect(row.locator('td').nth(2)).toHaveText('3 / 0.450', { timeout: 20_000 }); // issued
+  await expect(page.locator('.si-today-v')).toContainText('3 pcs · 0.450 ct · 1 card(s)'); // day counter caught up
 
   // real stock left the warehouse (of the SWAPPED item)
   const binAfter = await frappeCall(page, 'frappe.client.get_value', {

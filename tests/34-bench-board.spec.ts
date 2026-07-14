@@ -47,3 +47,23 @@ test('date filter narrows by due date', async ({ page }) => {
   const rows = await page.locator('table.bb-t tbody tr').count();
   expect(rows).toBe(0);
 });
+
+test('Columns button hides/shows table columns (per-user)', async ({ page }) => {
+  await gotoApp(page, 'bench-casting');
+  await page.evaluate(() => localStorage.removeItem('jw-bench-cols'));
+  await page.reload();
+  await expect(page.locator('table.bb-t thead th', { hasText: 'Salesman' })).toBeVisible({ timeout: 15_000 });
+  await page.locator('.page-actions button', { hasText: 'Columns' }).click();
+  // untick Salesman -> column disappears; choice persists to localStorage
+  await page.locator('.modal:visible input.bb-colcb[value="salesman"]').uncheck();
+  await expect(page.locator('table.bb-t thead th', { hasText: 'Salesman' })).toHaveCount(0);
+  const saved = await page.evaluate(() => localStorage.getItem('jw-bench-cols'));
+  expect(saved).not.toContain('salesman');
+  await page.keyboard.press('Escape');
+  // switch benches -> the hidden column stays hidden
+  await gotoApp(page, 'bench-grinding');
+  await expect(page.locator('table.bb-t thead th, .bb-none').first()).toBeVisible({ timeout: 15_000 });
+  const heads = await page.locator('table.bb-t thead th').allInnerTexts();
+  expect(heads.join(' ').toUpperCase()).toContain('CARD'); // table rendered
+  expect(heads.join(' ').toUpperCase()).not.toContain('SALESMAN');
+});

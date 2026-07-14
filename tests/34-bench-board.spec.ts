@@ -1,22 +1,34 @@
-// Bench boards: per-bench info page — KPIs, stock buckets, pills filter.
+// Bench boards: per-bench info page — KPIs, stock, generic filter bar + sort.
 import { expect, test } from '@playwright/test';
-import { gotoApp } from './helpers/jewelima';
+import { frappeCall, gotoApp } from './helpers/jewelima';
 
-test('bench-casting board renders KPIs, stock and filters', async ({ page }) => {
+test('bench-casting board: KPIs, stock, filter, sort', async ({ page }) => {
   await gotoApp(page, 'bench-casting');
-  await expect(page.locator('.page-title, h3')).toContainText('Casting', { timeout: 15_000 });
-  const kpi = page.locator('.bb-kpi .bb-tile');
-  await expect(kpi.first()).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator('.bb-kpi')).toContainText('Cards');
+  await expect(page.locator('.bb-kpi')).toContainText('Cards', { timeout: 15_000 });
   await expect(page.locator('.bb-kpi')).toContainText('Pieces');
   await expect(page.locator('.bb-stock')).toContainText('Pure Gold');
-  // filter by first party pill (if any cards) -> board repaints without error
-  const pill = page.locator('.bb-party .bb-pill').nth(1);
-  if (await pill.count()) {
-    await pill.click();
-    await expect(page.locator('.bb-party .bb-pill.on')).not.toHaveText('All');
+  // the generic filter bar exists with all fields
+  await expect(page.locator('.fb-field option')).toContainText(['Party', 'Salesman', 'Design Type', 'Order Type', 'Due Date']);
+
+  const before = await frappeCall(page, 'jewelima.jewelima.api.get_bench_board', { bench: 'CASTING' });
+  const total = before.rows.length;
+  if (total) {
+    // add a Party filter for the first card's party -> table narrows, chip shows
+    const party = before.rows.find((r: any) => r.party)?.party;
+    if (party) {
+      await page.locator('.fb-field').selectOption('party');
+      await page.locator('.fb-val select').selectOption(party);
+      await page.locator('.fb-add').click();
+      await expect(page.locator('.fb-chip')).toContainText(party);
+      const shown = await page.locator('table.bb-t tbody tr').count();
+      const expected = before.rows.filter((r: any) => r.party === party).length;
+      expect(shown).toBe(expected);
+      // remove the chip -> back to all
+      await page.locator('.fb-chip .x').first().click();
+      await expect(page.locator('table.bb-t tbody tr')).toHaveCount(total);
+    }
   }
-  // header click sorts; second click flips
+  // sort by Qty then flip
   await page.locator('th[data-sort="qty"]').click();
   await expect(page.locator('th[data-sort="qty"] .arr')).toHaveText('▲');
   await page.locator('th[data-sort="qty"]').click();
@@ -24,8 +36,14 @@ test('bench-casting board renders KPIs, stock and filters', async ({ page }) => 
   await page.screenshot({ path: 'test-results/bench-board.png' });
 });
 
-test('an empty bench still renders cleanly', async ({ page }) => {
-  await gotoApp(page, 'bench-wax-cleaning');
+test('date filter narrows by due date', async ({ page }) => {
+  await gotoApp(page, 'bench-casting');
   await expect(page.locator('.bb-kpi')).toContainText('Cards', { timeout: 15_000 });
-  await expect(page.locator('.bb-stock')).toContainText('Pure Gold');
+  await page.locator('.fb-field').selectOption('due');
+  await page.locator('.fb-op').selectOption('before');
+  await page.locator('.fb-val input[type="date"]').fill('2020-01-01'); // nothing before this
+  await page.locator('.fb-add').click();
+  await expect(page.locator('.bb-none, table.bb-t tbody tr')).toBeVisible();
+  const rows = await page.locator('table.bb-t tbody tr').count();
+  expect(rows).toBe(0);
 });

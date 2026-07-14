@@ -67,3 +67,21 @@ test('Columns button hides/shows table columns (per-user)', async ({ page }) => 
   expect(heads.join(' ').toUpperCase()).toContain('CARD'); // table rendered
   expect(heads.join(' ').toUpperCase()).not.toContain('SALESMAN');
 });
+
+test('stone bucket columns can be turned on + filtered by ct', async ({ page }) => {
+  await gotoApp(page, 'bench-casting');
+  await page.evaluate(() => localStorage.removeItem('jw-bench-cols'));
+  await page.reload();
+  await expect(page.locator('table.bb-t thead th').first()).toBeVisible({ timeout: 15_000 });
+  // buckets are OFF by default
+  let heads = (await page.locator('table.bb-t thead th').allInnerTexts()).join(' ');
+  expect(heads).not.toContain('DMD');
+  // turn DMD on via Columns
+  await page.locator('.page-actions button', { hasText: 'Columns' }).click();
+  await page.locator('.modal:visible input.bb-colcb[value="dmd"]').check();
+  await page.keyboard.press('Escape');
+  heads = (await page.locator('table.bb-t thead th').allInnerTexts()).join(' ');
+  expect(heads).toContain('DMD');
+  // DMD is also a numeric filter field now
+  await expect(page.locator('.fb-field option')).toContainText(['DMD (ct)']);
+});

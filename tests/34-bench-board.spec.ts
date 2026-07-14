@@ -16,6 +16,11 @@ test('bench-casting board renders KPIs, stock and filters', async ({ page }) => 
     await pill.click();
     await expect(page.locator('.bb-party .bb-pill.on')).not.toHaveText('All');
   }
+  // header click sorts; second click flips
+  await page.locator('th[data-sort="qty"]').click();
+  await expect(page.locator('th[data-sort="qty"] .arr')).toHaveText('▲');
+  await page.locator('th[data-sort="qty"]').click();
+  await expect(page.locator('th[data-sort="qty"] .arr')).toHaveText('▼');
   await page.screenshot({ path: 'test-results/bench-board.png' });
 });
 

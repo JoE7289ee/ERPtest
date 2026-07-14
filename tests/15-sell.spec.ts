@@ -3,8 +3,24 @@ import { expect, test } from '@playwright/test';
 import { frappeCall, gotoApp, setLink } from './helpers/jewelima';
 
 test.describe.configure({ mode: 'serial' });
-const BAGS = ['E0068.1.1', 'E0073.1.1'];
+// the spec CONSUMES its pieces (sold stays sold) — pick two live ones each run,
+// reserved for OTHER parties (red-line check) and not the E0120 sale-demo set
+let BAGS: string[] = [];
 let saleName = '';
+
+test.beforeAll(async ({ browser }) => {
+  const page = await browser.newPage();
+  const { frappeCall: fc, gotoApp: ga } = await import('./helpers/jewelima');
+  await ga(page, 'sell');
+  const rows = await fc(page, 'frappe.client.get_list', {
+    doctype: 'Order Bag',
+    filters: [['is_finished', '=', 1], ['stock_status', '=', 'In Stock'],
+      ['held_by', 'not in', ['KAVITHA', 'JD Stock']], ['name', 'not like', 'E0120%']],
+    fields: ['name'], limit_page_length: 2,
+  });
+  BAGS = rows.map((r: any) => r.name);
+  await page.close();
+});
 
 test('scan, price, red lines, totals', async ({ page }) => {
   await gotoApp(page, 'sell');
@@ -24,7 +40,7 @@ test('scan, price, red lines, totals', async ({ page }) => {
 
   // server pricing matches the verified math for E0065.1.1
   const m = await frappeCall(page, 'jewelima.jewelima.api.get_sale_piece',
-    { barcode: 'E0068.1.1', price_chart: 'PCH-0002', gold_rate: 10581 });
+    { barcode: BAGS[0], price_chart: 'PCH-0002', gold_rate: 10581 });
   expect(m.gold_value).toBeCloseTo(m.nett * 10581, 1);
   expect(m.diamond_value).toBeCloseTo(m.dmd_ct * 56000, 1);
   expect(m.labour_value).toBeCloseTo(Math.max(m.nett * 650, 650), 1);

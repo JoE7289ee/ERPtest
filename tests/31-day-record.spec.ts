@@ -35,6 +35,12 @@ test('day-sheet page: pick a date, the 4-page sheet renders on screen', async ({
   await expect(view).toContainText('BALAN S');           // issued-by
   await expect(view).toContainText('JOS TRIVANDRUM');    // sales
   await expect(view).toContainText('page 4 of 4');
+  await expect(view.locator('text=Orders by Karat').first()).toBeVisible();
+  await expect(view).toContainText('22K');
+  await expect(view.locator('text=Top Employees of the Day').first()).toBeVisible();
+  await expect(view.locator('text=Purchases into Stock').first()).toBeVisible();
+  await expect(view.locator('text=Ownership / Reservation Changes').first()).toBeVisible();
+  await expect(view).toContainText('Issue counters — stones');
   await expect(page.locator('.dsp-print')).toBeVisible();
   await expect(page.locator('.dsp-pdf')).toBeVisible();
   await page.screenshot({ path: 'test-results/day-sheet-page.png' });

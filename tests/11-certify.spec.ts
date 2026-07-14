@@ -9,6 +9,8 @@ let batch = '';
 
 test('send two pieces from the desk', async ({ page }) => {
   await gotoApp(page, 'certify');
+  const before = await frappeCall(page, 'jewelima.jewelima.api.get_certification_batches');
+  const outBefore = before.summary.pieces_out || 0;
   const pieces = await frappeCall(page, 'jewelima.jewelima.api.get_certifiable_pieces');
   expect(pieces.length).toBeGreaterThanOrEqual(2);
   bags = pieces.slice(0, 2).map((p: any) => p.order_bag);
@@ -25,7 +27,7 @@ test('send two pieces from the desk', async ({ page }) => {
   const m = await frappeCall(page, 'jewelima.jewelima.api.get_certification_batches');
   batch = m.batches[0].name;
   expect(m.batches[0].total).toBe(2);
-  expect(m.summary.pieces_out).toBe(2);
+  expect(m.summary.pieces_out).toBe(outBefore + 2);
   for (const b of bags) {
     const st = await frappeCall(page, 'frappe.client.get_value', { doctype: 'Order Bag', filters: b, fieldname: 'stock_status' });
     expect(st.stock_status).toBe('At Certification');
@@ -65,7 +67,7 @@ test('board shows the batch + summary; chip-click receives pieces back', async (
   const m1 = await frappeCall(page, 'jewelima.jewelima.api.get_certification_batches');
   const mine1 = m1.batches.find((x: any) => x.name === batch);
   expect(mine1.status).toBe('Received');
-  expect(m1.summary.pieces_out).toBe(0);
+  expect(m1.summary.pieces_out).toBe(m0.summary.pieces_out - 2); // our two came home
   const stamped = mine1.items.map((r: any) => r.huid || r.certificate_no).sort();
   expect(stamped).toEqual(['IGI-TEST-9', 'ZZTEST1']);
   for (const b of bags) {

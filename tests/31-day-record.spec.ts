@@ -22,3 +22,25 @@ test('rebuild + open a Day Record; Day Sheet print renders 4 pages', async ({ pa
   expect(body.toUpperCase()).toContain('CLOSING POSITIONS');
   await page.screenshot({ path: 'test-results/day-sheet.png', fullPage: true });
 });
+
+test('day-sheet page: pick a date, the 4-page sheet renders on screen', async ({ page }) => {
+  await gotoApp(page, 'day-sheet');
+  // point it at the fully-loaded demo day
+  await page.locator('.dsp-date input').fill('01-07-2026');
+  await page.locator('.dsp-date input').press('Escape');
+  await page.locator('.dsp-date input').dispatchEvent('change');
+  const view = page.locator('.dsp-view');
+  await expect(view).toBeVisible({ timeout: 15_000 });
+  await expect(view).toContainText('Day Sheet');
+  await expect(view).toContainText('BALAN S');           // issued-by
+  await expect(view).toContainText('JOS TRIVANDRUM');    // sales
+  await expect(view).toContainText('page 4 of 4');
+  await expect(page.locator('.dsp-print')).toBeVisible();
+  await expect(page.locator('.dsp-pdf')).toBeVisible();
+  await page.screenshot({ path: 'test-results/day-sheet-page.png' });
+  // a date with no record shows the empty note + build button (as admin)
+  await page.locator('.dsp-date input').fill('01-01-2025');
+  await page.locator('.dsp-date input').dispatchEvent('change');
+  await expect(page.locator('.dsp-empty')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.dsp-rebuild')).toBeVisible();
+});

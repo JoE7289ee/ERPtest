@@ -37,7 +37,12 @@ test('day-sheet page: pick a date, the 4-page sheet renders on screen', async ({
   await expect(view).toContainText('page 4 of 4');
   await expect(view.locator('text=Orders by Karat').first()).toBeVisible();
   await expect(view).toContainText('22K');
-  await expect(view.locator('text=Top Employees of the Day').first()).toBeVisible();
+  await expect(view.locator('text=Bench Flows').first()).toBeVisible();
+  await expect(view).toContainText('Casting — IN');
+  await expect(view).toContainText('Casting — OUT');
+  await expect(view.locator('text=Production — Trees, Casting, Melting').first()).toBeVisible();
+  await expect(view).toContainText('Trees made');
+  await expect(view).toContainText('Melted / repacked');
   await expect(view.locator('text=Purchases into Stock').first()).toBeVisible();
   await expect(view.locator('text=Ownership / Reservation Changes').first()).toBeVisible();
   await expect(view).toContainText('Issue counters — stones');

@@ -57,9 +57,9 @@ test('board shows the batch + summary; chip-click receives pieces back', async (
   await expect(page.locator(`.co-col[data-name="${batch}"] .co-chip.pend`)).toHaveCount(1, { timeout: 15_000 });
   await expect(page.locator(`.co-col[data-name="${batch}"]`)).toContainText('1/2');
 
-  // receive piece 2 (cert no)
+  // receive piece 2 (HUID again — hallmark pieces each bring one)
   await page.locator(`.co-col[data-name="${batch}"] .co-chip.pend`).first().click();
-  await page.locator('.modal:visible input[data-fieldname="certificate_no"]').fill('IGI-TEST-9');
+  await page.locator('.modal:visible input[data-fieldname="huid"]').fill('ZZTEST2');
   await page.locator('.modal:visible .btn-primary', { hasText: 'Receive' }).click();
   await expect(page.locator(`.co-col[data-name="${batch}"] .co-chip.pend`)).toHaveCount(0, { timeout: 15_000 });
   await expect(page.locator(`.co-col[data-name="${batch}"]`)).toContainText('2/2');
@@ -68,10 +68,41 @@ test('board shows the batch + summary; chip-click receives pieces back', async (
   const mine1 = m1.batches.find((x: any) => x.name === batch);
   expect(mine1.status).toBe('Received');
   expect(m1.summary.pieces_out).toBe(m0.summary.pieces_out - 2); // our two came home
-  const stamped = mine1.items.map((r: any) => r.huid || r.certificate_no).sort();
-  expect(stamped).toEqual(['IGI-TEST-9', 'ZZTEST1']);
+  const stamped = mine1.items.map((r: any) => r.huid).sort();
+  expect(stamped).toEqual(['ZZTEST1', 'ZZTEST2']);
   for (const b of bags) {
-    const st = await frappeCall(page, 'frappe.client.get_value', { doctype: 'Order Bag', filters: b, fieldname: 'stock_status' });
-    expect(st.stock_status).toBe('In Stock');
+    const v = await frappeCall(page, 'frappe.client.get_value', { doctype: 'Order Bag', filters: b, fieldname: ['stock_status', 'certifications'] });
+    expect(v.stock_status).toBe('In Stock');
+    expect(v.certifications).toContain('HALLMARKING'); // the trail the bag keeps
+  }
+});
+
+test('stone-lab batch: send as IGL, collect by COUNT (no per-piece scan)', async ({ page }) => {
+  await gotoApp(page, 'certify');
+  const pieces = await frappeCall(page, 'jewelima.jewelima.api.get_certifiable_pieces');
+  const labBags = pieces.slice(0, 2).map((p: any) => p.order_bag);
+  for (const b of labBags) {
+    await page.locator(`.ct-pieces tr[data-bag="${b}"]`).click();
+  }
+  await page.locator('.ct-type-sel').selectOption('IGL');
+  await page.locator('.ct-lab').fill('IGL Chennai');
+  await page.locator('.ct-send').click();
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
+  await expect(page.locator(`.ct-pieces tr[data-bag="${labBags[0]}"]`)).toHaveCount(0, { timeout: 15_000 });
+
+  await gotoApp(page, 'certification-out');
+  const m = await frappeCall(page, 'jewelima.jewelima.api.get_certification_batches');
+  const lab = m.batches.find((x: any) => x.certification_type === 'IGL' && x.status !== 'Received');
+  const $col = page.locator(`.co-col[data-name="${lab.name}"]`);
+  await expect($col.locator('.co-chip.pend')).toHaveCount(0); // lab chips are NOT clickable
+  await expect($col.locator('.co-collect')).toContainText('Collect all (2)');
+  await $col.locator('.co-collect').click();
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
+  await expect($col.locator('.co-collect')).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.locator(`.co-col[data-name="${lab.name}"]`)).toContainText('2/2');
+  for (const b of labBags) {
+    const v = await frappeCall(page, 'frappe.client.get_value', { doctype: 'Order Bag', filters: b, fieldname: ['stock_status', 'certifications'] });
+    expect(v.stock_status).toBe('In Stock');
+    expect(v.certifications).toContain('IGL');
   }
 });

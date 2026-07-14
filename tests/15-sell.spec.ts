@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { frappeCall, gotoApp, setLink } from './helpers/jewelima';
 
 test.describe.configure({ mode: 'serial' });
-const BAGS = ['E0065.1.1', 'E0063.2.1'];
+const BAGS = ['E0068.1.1', 'E0073.1.1'];
 let saleName = '';
 
 test('scan, price, red lines, totals', async ({ page }) => {
@@ -24,7 +24,7 @@ test('scan, price, red lines, totals', async ({ page }) => {
 
   // server pricing matches the verified math for E0065.1.1
   const m = await frappeCall(page, 'jewelima.jewelima.api.get_sale_piece',
-    { barcode: 'E0065.1.1', price_chart: 'PCH-0002', gold_rate: 10581 });
+    { barcode: 'E0068.1.1', price_chart: 'PCH-0002', gold_rate: 10581 });
   expect(m.gold_value).toBeCloseTo(m.nett * 10581, 1);
   expect(m.diamond_value).toBeCloseTo(m.dmd_ct * 56000, 1);
   expect(m.labour_value).toBeCloseTo(Math.max(m.nett * 650, 650), 1);

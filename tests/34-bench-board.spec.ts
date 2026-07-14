@@ -85,3 +85,12 @@ test('stone bucket columns can be turned on + filtered by ct', async ({ page }) 
   // DMD is also a numeric filter field now
   await expect(page.locator('.fb-field option')).toContainText(['DMD (ct)']);
 });
+
+test('Export downloads an xlsx of the current view', async ({ page }) => {
+  await gotoApp(page, 'bench-casting');
+  await expect(page.locator('table.bb-t thead th').first()).toBeVisible({ timeout: 15_000 });
+  const dl = page.waitForEvent('download', { timeout: 20_000 });
+  await page.locator('.page-actions button', { hasText: 'Export' }).click();
+  const file = await dl;
+  expect(file.suggestedFilename()).toMatch(/^Bench-CASTING-\d{4}-\d{2}-\d{2}\.xlsx$/);
+});

@@ -118,3 +118,29 @@ test('review pass: open a selected piece full screen, unselect, update the recor
   await page.screenshot({ path: 'test-results/selection-review.png' });
   await frappeCall(page, 'frappe.client.delete', { doctype: 'Selection', name: nm }).catch(() => {});
 });
+
+test('a selection downloads as a PDF sheet with its photos', async ({ page }) => {
+  await gotoApp(page, 'select-photos');
+  await expect(page.locator('.sl2-card').first()).toBeVisible({ timeout: 20_000 });
+  await page.locator('.sl2-card').first().click();
+  await page.locator('.sl2-pick').click();
+  await page.locator('.sl2-nav.next').click();
+  await page.locator('.sl2-pick').click();
+  await page.keyboard.press('Escape');
+  await setLink(page, '.sl2-party input', 'JD Stock');
+  await page.locator('.sl2-save').click();
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
+  await expect(page.locator('.modal:visible')).toContainText('Selection saved', { timeout: 20_000 });
+  const nm = ((await page.locator('.modal:visible .modal-body').innerText()).match(/SEL-\d+/) || [''])[0];
+  await page.keyboard.press('Escape');
+
+  await gotoApp(page, 'selected-pieces');
+  await page.locator(`.sp-rec[data-n="${nm}"]`).click();
+  await expect(page.locator('.sp-editbar')).toHaveClass(/on/, { timeout: 15_000 });
+  const dl = page.waitForEvent('download', { timeout: 40_000 });
+  await page.locator('.page-actions button', { hasText: 'PDF' }).click();
+  const file = await dl;
+  expect(file.suggestedFilename()).toContain(nm);
+  expect(file.suggestedFilename()).toMatch(/\.pdf$/);
+  await frappeCall(page, 'frappe.client.delete', { doctype: 'Selection', name: nm }).catch(() => {});
+});

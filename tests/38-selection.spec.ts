@@ -18,8 +18,18 @@ test('gallery loads, picking photos saves a Selection with the count', async ({ 
   expect(total).toBeGreaterThan(50);           // the imported batch
   await expect(page.locator('.sl2-of')).toHaveText(String(total));
 
-  // pick three photos -> strip counts them
-  for (let i = 0; i < 3; i++) await page.locator('.sl2-card').nth(i).click();
+  // a card opens the photo FULL SCREEN; picking happens in the viewer
+  await page.locator('.sl2-card').first().click();
+  await expect(page.locator('.sl2-view')).toHaveClass(/on/);
+  await expect(page.locator('.sl2-vcode')).not.toHaveText('');
+  await page.locator('.sl2-pick').click();                       // pick #1
+  await expect(page.locator('.sl2-pick')).toHaveClass(/picked/);
+  await page.locator('.sl2-nav.next').click();                   // browse ->
+  await page.locator('.sl2-pick').click();                       // pick #2
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press(' ');                                // pick #3 via Space
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sl2-view')).not.toHaveClass(/on/);
   await expect(page.locator('.sl2-n')).toHaveText('3');
   await expect(page.locator('.sl2-card.on')).toHaveCount(3);
 
@@ -45,7 +55,11 @@ test('selected pieces board shows what was picked', async ({ page }) => {
   // make a selection to look at
   await gotoApp(page, 'select-photos');
   await expect(page.locator('.sl2-card').first()).toBeVisible({ timeout: 20_000 });
-  for (let i = 0; i < 2; i++) await page.locator('.sl2-card').nth(i).click();
+  await page.locator('.sl2-card').first().click();
+  await page.locator('.sl2-pick').click();
+  await page.locator('.sl2-nav.next').click();
+  await page.locator('.sl2-pick').click();
+  await page.keyboard.press('Escape');
   await setLink(page, '.sl2-party input', 'JD Stock');
   await page.locator('.sl2-save').click();
   await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();

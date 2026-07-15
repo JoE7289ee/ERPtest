@@ -77,3 +77,44 @@ test('selected pieces board shows what was picked', async ({ page }) => {
   await page.screenshot({ path: 'test-results/selected-pieces.png' });
   await frappeCall(page, 'frappe.client.delete', { doctype: 'Selection', name: nm }).catch(() => {});
 });
+
+test('review pass: open a selected piece full screen, unselect, update the record', async ({ page }) => {
+  // a selection of 3 to trim
+  await gotoApp(page, 'select-photos');
+  await expect(page.locator('.sl2-card').first()).toBeVisible({ timeout: 20_000 });
+  await page.locator('.sl2-card').first().click();
+  for (let i = 0; i < 3; i++) { await page.locator('.sl2-pick').click(); await page.locator('.sl2-nav.next').click(); }
+  await page.keyboard.press('Escape');
+  await setLink(page, '.sl2-party input', 'JD Stock');
+  await page.locator('.sl2-save').click();
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
+  await expect(page.locator('.modal:visible')).toContainText('Selection saved', { timeout: 20_000 });
+  const nm = ((await page.locator('.modal:visible .modal-body').innerText()).match(/SEL-\d+/) || [''])[0];
+  await page.keyboard.press('Escape');
+
+  // focus it -> edit bar appears, cards become clickable
+  await gotoApp(page, 'selected-pieces');
+  await page.locator(`.sp-rec[data-n="${nm}"]`).click();
+  await expect(page.locator('.sp-editbar')).toHaveClass(/on/, { timeout: 15_000 });
+  await expect(page.locator('.sp-card')).toHaveCount(3);
+
+  // open one full screen and remove it
+  await page.locator('.sp-card').first().click();
+  await expect(page.locator('.sp-view')).toHaveClass(/on/);
+  await expect(page.locator('.sp-keep')).not.toHaveClass(/out/);
+  await page.locator('.sp-keep').click();
+  await expect(page.locator('.sp-keep')).toHaveClass(/out/);      // now marked removed
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.sp-card.gone')).toHaveCount(1);
+  await expect(page.locator('.sp-emsg')).toContainText('1 removed');
+
+  // update -> the record now holds 2
+  await page.locator('.sp-update').click();
+  await page.locator('.modal:visible .btn-primary', { hasText: 'Yes' }).click();
+  await expect(page.locator('.sp-card')).toHaveCount(2, { timeout: 20_000 });
+  const doc = await frappeCall(page, 'frappe.client.get', { doctype: 'Selection', name: nm });
+  expect(doc.total_photos).toBe(2);
+  expect(doc.items.length).toBe(2);
+  await page.screenshot({ path: 'test-results/selection-review.png' });
+  await frappeCall(page, 'frappe.client.delete', { doctype: 'Selection', name: nm }).catch(() => {});
+});

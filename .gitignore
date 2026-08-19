@@ -7,3 +7,7 @@ npm-debug.log*
 ERPtest-main.tar.gz
 .claude/
 .auth/
+
+# finished videos — the specs regenerate them
+*.mp4
+*.webm

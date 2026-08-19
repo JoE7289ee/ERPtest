@@ -1,25 +1,29 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Teaching-video config: every tutorial records a clean 1280x800 video with an
+// injected cursor + caption overlay (see tests/helpers/tutorial.ts). Runs one at
+// a time against the dev bench (or BASE_URL for the live server).
 export default defineConfig({
   testDir: './tests',
-  // Specs share live masters (benches, warehouses); run them one file at a time.
   fullyParallel: false,
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  timeout: 90_000,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  retries: 0,
+  timeout: 300_000,
+  reporter: [['list']],
   use: {
-    baseURL: process.env.BASE_URL || 'http://development.localhost:8000', // set BASE_URL=https://erp.jdserveraccess.in to test the live server
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    baseURL: process.env.BASE_URL || 'http://development.localhost:8000',
+    viewport: { width: 1280, height: 800 },
+    video: { mode: 'on', size: { width: 1280, height: 800 } },
+    trace: 'off',
+    screenshot: 'off',
+    launchOptions: { slowMo: 60 }, // a touch of pacing so clicks read on video
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, storageState: '.auth/user.json' },
       dependencies: ['setup'],
       testIgnore: /auth\.setup\.ts/,
     },

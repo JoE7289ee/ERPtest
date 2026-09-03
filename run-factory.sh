@@ -9,7 +9,13 @@ TARGET="${1:-dev}"; shift || true
 case "$TARGET" in
   dev)  BASE=http://development.localhost:8000
         SID() { docker exec -u frappe devcontainer-frappe-1 bash -lc "cd /workspace/development/frappe-bench && bench --site development.localhost browse --user $1 2>&1" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
-  prod) BASE=https://erp.jdserveraccess.in
+  prod) # Over TAILSCALE, not the public hostname. erp.jdserveraccess.in resolves through
+        # a Cloudflare tunnel: ~0.52 s per round trip against ~0.09 s direct, and a seeding
+        # run is thousands of requests — latency the pages feel, and exactly the shape of
+        # traffic a tunnel rate-limits. The URL and Host header are unchanged (nginx and
+        # Frappe see what they always see); only the route differs. TS_HOST overrides.
+        BASE=http://erp.jdserveraccess.in
+        export RESOLVE_MAP="erp.jdserveraccess.in ${TS_HOST:-100.104.123.51}:8000"
         # NEVER exec bench inside the live backend container: on 2026-09-03 every
         # `bench browse` there killed gunicorn ("Worker failed to boot") — one restart
         # per mint, 18 in four minutes, during a customer demo. Sessions for prod are
@@ -30,6 +36,10 @@ frappe.db.commit(); print('sid=' + frappe.session.sid)
 \" 2>/dev/null" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
   *) echo "target must be dev or prod"; exit 1 ;;
 esac
+# one state file per site — leg 7 acts on the card list leg 6 wrote, and a dev card
+# name is a different card (or none) on prod
+mkdir -p .factory
+export FACTORY_STATE=".factory/state-$TARGET.json"
 echo "minting sessions on $TARGET…"
 export BASE_URL="$BASE"
 # a container mid-restart answers nothing for a few seconds — try again rather than

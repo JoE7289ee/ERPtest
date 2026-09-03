@@ -22,7 +22,7 @@ const BATCH = parseInt(process.env.BATCH || '50', 10);
 const PER_BENCH = parseInt(process.env.PER_BENCH || '20', 10);
 const DESIGN = process.env.DESIGN || 'A13010NP-18EF-Y';
 const PARTY = process.env.PARTY || 'AJ-KUR-TCR-KL';
-const STATE = '.factory/state.json';
+const STATE = process.env.FACTORY_STATE || '.factory/state.json';
 
 const test = base;
 test.describe.configure({ mode: 'serial' });

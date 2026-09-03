@@ -17,7 +17,13 @@ export default defineConfig({
     video: { mode: 'on', size: { width: 1280, height: 800 } },
     trace: 'off',
     screenshot: 'off',
-    launchOptions: { slowMo: process.env.FAST ? 0 : 60 }, // pacing so clicks read on video; FAST=1 drops it
+    launchOptions: {
+      slowMo: process.env.FAST ? 0 : 60, // pacing so clicks read on video; FAST=1 drops it
+      // RESOLVE_MAP routes a hostname straight to an IP inside the browser, so the
+      // URL and the Host header stay exactly as they are while the connection skips
+      // the public path. Used to reach prod over Tailscale instead of Cloudflare.
+      args: process.env.RESOLVE_MAP ? [`--host-resolver-rules=MAP ${process.env.RESOLVE_MAP}`] : [],
+    },
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },

@@ -11,3 +11,4 @@ ERPtest-main.tar.gz
 # finished videos — the specs regenerate them
 *.mp4
 *.webm
+.factory/

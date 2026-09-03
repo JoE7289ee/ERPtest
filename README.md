@@ -191,6 +191,67 @@ you edited, `tabBench Issue` has the work type and collection state.
 - A design's **gross is always stored as 18K**; the dialog converts.
 - **Diamond weight is never typed** — it is the sieve average.
 
+## 5b. Seeding a whole floor: `30-factory`
+
+`tests/30-factory.spec.ts` fills a site with a working floor **through the real
+desk pages, as the real people** — Reena places the orders, Jojo buys and
+melts, Sheeja moves and issues, Balan runs the stone room. Nothing goes in by
+API, so every card, gram and stone lands exactly the way it does on the floor
+and can be issued, transferred, made into product and printed afterwards.
+
+```bash
+python3 factory_setup.py            # once per site, inside the bench container (see below)
+./run-factory.sh dev                # or: ./run-factory.sh prod
+./run-factory.sh dev --grep "SHEEJA"  # one actor's legs (grep is a substring of the title)
+BAGS=300 PER_BENCH=20 ISSUE_N=10 STONE_N=30 TREE_N=20 ./run-factory.sh dev
+```
+
+The runner mints one session per actor on the target's own container and
+passes them as `REENA_SID` … `BALAN_SID`. Legs run serially in file order and
+hand state to each other through `.factory/state.json` (gitignored).
+
+| Leg | Who | What | Page |
+|---|---|---|---|
+| 1 | Reena | `BAGS` cards of one design, `BATCH` per order, split into bags | place-order |
+| 2 | Jojo | Standard Gold 999 + Alloy into Gold Issue | purchase-raw-material |
+| 2b | Jojo | the design's stones into Stone Issue, sized to `BAGS` + 15 % | purchase-raw-material |
+| 3 | Jojo | melts 18KYG / 18KWG / 18KPG / 22KYG from 999 + alloy, sends each to Casting | melt-gold |
+| 4 | Sheeja | `PER_BENCH` cards from ORDERING onto every bench the rules allow (not REWORK — that is reached only from a finished piece) | transfer-order-bag |
+| 5 | Sheeja | `ISSUE_N` per bench: Job Work at the weight benches, Assign at the light ones | job-work, assign-collect |
+| 6 | Balan | `STONE_N` cards at SETTING / WAX SETTING marked for stone issue | stone-request |
+| 7 | Balan | issues each one's plan, as himself | stone-issue |
+| 8 | Sheeja | one 18KYG tree from TREE MAKING, then gross weights booked onto it | make-tree, casting-weigh |
+
+**`factory_setup.py` is not optional.** Copy it into the bench container and
+run it with the bench's own python (`docker cp … ; docker exec … env/bin/python
+/home/frappe/factory_setup.py`). It is idempotent and site-agnostic — it finds
+things by readable keys, never by hash — and it refuses to run if a prerequisite
+is missing, naming it. It creates:
+
+- **balan@jd.in** with `JW Stone Admin` only (buying is Jojo's job), and an
+  **Employee linked to that login** — the stone station locks the issuer to it,
+  so without the link Balan cannot issue at all.
+- **`A13010NP-18EF-Y`**, one Active Design hung on the real `A 13010` card, with
+  gold and two diamond lines. The order desk resolves a typed variant code only
+  through a Design that carries a Design Bank — a wiped site has none, which is
+  why `20-order-desk` cannot seed one.
+- a name on the **TREE MAKING roster** — the Make Tree dialog offers only that
+  bench's roster, and an empty one means an empty dropdown.
+
+Things learned mapping the pages, which the spec works around:
+
+- **transfer-order-bag leaves its freeze overlay stuck past 30 bags** (freeze is
+  called per chunk, unfreeze once). The spec transfers in 20s with a fresh
+  `gotoApp` for every batch.
+- **Scan boxes clear synchronously before the lookup returns.** Never wait on
+  the input emptying — wait on the row count.
+- **Job Work and Assign now issue without an employee** behind a confirm; the
+  spec always names one so nothing on the floor is left unowned.
+- **Balan is not an admin on stone-issue**, so the issuer field is set for him
+  and disabled — do not `pickLink` it.
+- **Only casting-weigh writes a weight onto a card** at the tree stage;
+  make-tree's wax weight is the tree's, not the cards'.
+
 ## 6. Gotchas that each cost a debugging session
 
 - **`--reporter=line` overwrites `console.log`** — later lines vanish. Use `list`.

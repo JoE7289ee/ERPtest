@@ -7,7 +7,7 @@
 //   KEEP_IN_ORDERING=1 ...                             # skip the transfer, leave them in ORDERING
 import { test, expect, gotoHome, gotoApp, say, click, typeInto, pickLink, spotlight, spotOff, pause } from './helpers/tutorial';
 
-const VARIANT = 'A13405NP-18EF-Y';
+const VARIANT = process.env.VARIANT || 'A13405NP-18EF-Y';   // override when seeding a site that has different designs
 const PARTY   = 'AJ-KUR-TCR-KL';
 const OTYPE   = 'CUSTOMER';
 const BAGS    = parseInt(process.env.BAGS || '6', 10);

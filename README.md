@@ -54,6 +54,32 @@ Seed a site with real cards (no captions, fast):
 ```bash
 SEED=1 BAGS=25 npx playwright test 20-order-desk --project=chromium
 KEEP_IN_ORDERING=1 ...      # leave them in ORDERING instead of pushing to CAD
+VARIANT=A13047-18EF-Y ...   # the design to order, when the site has different ones
+```
+
+**The order-desk seeder needs a Design that already has a Design Bank.** On a
+freshly wiped site `tabDesign` is empty, the grid's `design` Link filters on
+`design_bank`, and the spec dies on its own assertion with `design` still blank.
+Seed the records directly instead — a Job Order, its bags, then move them onto
+the floor:
+
+```python
+jo  = frappe.get_doc({"doctype": "Job Order", "order_date": ..., "customer": ...}).insert()
+bag = frappe.get_doc({"doctype": "Order Bag", "job_order": jo.name,
+                      "design": d, "qty": 1, "bag_bom": dmat[d]}).insert()
+japi.transfer_order_bags(json.dumps(bags), "CASTING", remarks="seed")
+```
+
+`jewelima.demo.demo_data.make_demo` does all of this and more, but on the current
+warehouse set its stock step dies on `Raw Materials Store` (gone), and it refuses
+to run at all while `sites/<site>/jewelima_demo_manifest.json` exists — a wipe
+removes the records but leaves the manifest, so move it aside first.
+
+Findings stock (for the Issue Findings tutorials) is a plain purchase:
+
+```python
+japi.post_raw_material_purchase(supplier="JD Stock", warehouse="Gold Issue - JD",
+    voucher_type="SIN", items=json.dumps([{"item": "KERALA SCREW-22KYG", "weight": 40, "count": 0}]))
 ```
 
 ---
@@ -186,6 +212,11 @@ you edited, `tabBench Issue` has the work type and collection state.
 - **The order grid keeps a blank spare row** — count rows carrying a design.
 - **Resetting a naming series while an `Order No Reservation` exists** makes the
   next order fail with *Duplicate Name*. Clear reservations too.
+- **A stray `/tmp/*.py` can shadow a stdlib/venv module** inside the containers
+  (`/tmp/rq.py` shadowed `rq` and broke every `import frappe`). Run one-off
+  scripts from `/home/frappe`, not `/tmp`.
+- **`bench --site X mariadb -e "..."` through ssh + docker exec silently dies** on
+  the quoting. Copy a `.py` in and run it with `frappe-bench/env/bin/python`.
 - **Desk pages stay alive between visits.** Anything expecting fresh data needs
   `on_page_show`; a stale board is not necessarily a bug in the data.
 

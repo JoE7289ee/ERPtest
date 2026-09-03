@@ -15,8 +15,11 @@ case "$TARGET" in
 esac
 echo "minting sessions on $TARGET…"
 export BASE_URL="$BASE"
-export ERP_SID=$(SID Administrator)
-export REENA_SID=$(SID reena@jd.in) JOJO_SID=$(SID jojokk@jd.in) SHEEJA_SID=$(SID sheeja@jd.in) BALAN_SID=$(SID balan@jd.in)
+# a container mid-restart answers nothing for a few seconds — try again rather than
+# calling a user missing who is only momentarily unreachable
+MINT() { local s; for i in 1 2 3 4 5 6; do s=$(SID "$1" 2>/dev/null); [ -n "$s" ] && { echo "$s"; return; }; sleep 5; done; }
+export ERP_SID=$(MINT Administrator)
+export REENA_SID=$(MINT reena@jd.in) JOJO_SID=$(MINT jojokk@jd.in) SHEEJA_SID=$(MINT sheeja@jd.in) BALAN_SID=$(MINT balan@jd.in)
 for v in ERP_SID REENA_SID JOJO_SID SHEEJA_SID BALAN_SID; do
   [ -n "${!v}" ] || { echo "could not mint $v — does the user exist on $TARGET? run factory_setup.py first"; exit 1; }
 done

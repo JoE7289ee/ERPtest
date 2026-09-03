@@ -29,7 +29,8 @@ test.describe.configure({ mode: 'serial' });
 
 const load = () => (fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, 'utf8')) : {});
 const save = (patch: any) => fs.writeFileSync(STATE, JSON.stringify({ ...load(), ...patch }, null, 1));
-const wait = (p: any, ms: number) => p.waitForTimeout(ms);
+const FAST = !!process.env.FAST;
+const wait = (p: any, ms: number) => p.waitForTimeout(FAST ? Math.min(ms, 200) : ms);
 
 /** become one of the actors: swap the session cookie, then land on the desk */
 async function become(page: any, who: 'REENA' | 'JOJO' | 'SHEEJA' | 'BALAN') {

@@ -17,7 +17,7 @@ export default defineConfig({
     video: { mode: 'on', size: { width: 1280, height: 800 } },
     trace: 'off',
     screenshot: 'off',
-    launchOptions: { slowMo: 60 }, // a touch of pacing so clicks read on video
+    launchOptions: { slowMo: process.env.FAST ? 0 : 60 }, // pacing so clicks read on video; FAST=1 drops it
   },
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/ },

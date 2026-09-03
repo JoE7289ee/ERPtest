@@ -77,7 +77,10 @@ export const test = base.extend({
 });
 export { expect };
 
-const wait = (p: Page, ms: number) => p.waitForTimeout(ms);
+// FAST=1 is for seeding, not recording: no typing delay, cushion waits capped
+const FAST = !!process.env.FAST;
+const KEY_DELAY = FAST ? 0 : 85;
+const wait = (p: Page, ms: number) => p.waitForTimeout(FAST ? Math.min(ms, 150) : ms);
 
 /** Start every tutorial on the Jewelima home page (so the navigation is shown). */
 export async function gotoHome(page: Page) {
@@ -168,7 +171,7 @@ export async function typeInto(page: Page, loc: Locator, text: string, caption?:
   await moveTo(page, loc);
   await loc.click();
   await loc.fill('');
-  await loc.pressSequentially(text, { delay: 85 });
+  await loc.pressSequentially(text, { delay: KEY_DELAY });
   await wait(page, 450);
 }
 
@@ -179,7 +182,7 @@ export async function pickLink(page: Page, inputLocator: Locator, value: string,
   await moveTo(page, inputLocator);
   await inputLocator.click();
   await inputLocator.fill('');
-  await inputLocator.pressSequentially(value, { delay: 80 });
+  await inputLocator.pressSequentially(value, { delay: KEY_DELAY });
   const opt = page.getByRole('option', { name: new RegExp(value, 'i') }).first();
   await opt.waitFor({ state: 'visible', timeout: 9000 });
   await wait(page, 350);

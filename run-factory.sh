@@ -15,7 +15,19 @@ case "$TARGET" in
         # per mint, 18 in four minutes, during a customer demo. Sessions for prod are
         # minted in a queue-worker container, which has the bench but serves no HTTP.
         [ "$PROD_MINT_OK" = "1" ] || { echo "prod minting is gated: set PROD_MINT_OK=1 once you have read the note above"; exit 1; }
-        SID() { ssh newbox "docker exec -u frappe jewelima-prod-queue-short-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site development.localhost browse --user $1 2>&1'" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
+        # `bench browse --user` refuses anyone but Administrator unless developer_mode
+        # is on — which prod must never have — and it spawns xdg-open browser fallbacks
+        # besides. So prod mints the way browse does underneath: LoginManager.login_as,
+        # through the bench's own python. No password, no gate, no browser.
+        SID() { ssh newbox "docker exec -u frappe -w /home/frappe/frappe-bench/sites jewelima-prod-queue-short-1 /home/frappe/frappe-bench/env/bin/python -c \"
+import frappe
+from frappe.auth import CookieManager, LoginManager
+frappe.init(site='development.localhost'); frappe.connect()
+frappe.utils.set_request(path='/')
+frappe.local.cookie_manager = CookieManager(); frappe.local.login_manager = LoginManager()
+frappe.local.login_manager.login_as('$1')
+frappe.db.commit(); print('sid=' + frappe.session.sid)
+\" 2>/dev/null" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
   *) echo "target must be dev or prod"; exit 1 ;;
 esac
 echo "minting sessions on $TARGET…"
@@ -28,7 +40,7 @@ MINT() { SID "$1" 2>/dev/null; }
 export ERP_SID=$(MINT Administrator)
 export REENA_SID=$(MINT reena@jd.in) JOJO_SID=$(MINT jojokk@jd.in) SHEEJA_SID=$(MINT sheeja@jd.in) BALAN_SID=$(MINT balan@jd.in)
 for v in ERP_SID REENA_SID JOJO_SID SHEEJA_SID BALAN_SID; do
-  [ -n "${!v}" ] || { echo "could not mint $v — does the user exist on $TARGET? run factory_setup.py first"; exit 1; }
+  [ -n "${!v}" ] || { echo "could not mint $v on $TARGET — the user is missing, or the minting path failed (see the comments above)"; exit 1; }
 done
 echo "ok — $BASE"
 npx playwright test 30-factory --project=chromium --reporter=list --timeout=1800000 "$@"

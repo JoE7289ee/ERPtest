@@ -206,8 +206,14 @@ python3 factory_setup.py            # once per site, inside the bench container 
 BAGS=300 PER_BENCH=20 ISSUE_N=10 STONE_N=30 TREE_N=20 ./run-factory.sh dev
 ```
 
-The runner mints one session per actor on the target's own container and
-passes them as `REENA_SID` … `BALAN_SID`. Legs run serially in file order and
+The runner mints one session per actor and passes them as `REENA_SID` …
+`BALAN_SID`. On dev that is `bench browse --user` in the dev container. **On
+prod it is not** — `browse` refuses non-Administrator users without
+`developer_mode` (which prod must never have) and spawns `xdg-open` browser
+fallbacks — so prod mints through `LoginManager.login_as` in the bench's own
+python, **in a queue-worker container, never the backend**: every CLI run inside
+the live backend container killed gunicorn (18 restarts in four minutes, during
+a demo). `PROD_MINT_OK=1` gates it. Legs run serially in file order and
 hand state to each other through `.factory/state.json` (gitignored).
 
 | Leg | Who | What | Page |

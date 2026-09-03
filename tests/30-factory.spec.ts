@@ -59,10 +59,29 @@ test('1 REENA places the orders', async ({ page }) => {
     await pickLink(page, page.locator('.po-h-ordertype input'), 'CUSTOMER');
     await typeInto(page, page.locator('.po-h-days input'), '15');
     const row0 = page.locator('.po-grid tbody tr').first();
-    await typeInto(page, row0.locator('input[data-fieldname="bank"]'), DESIGN);
-    await expect.poll(async () => await page.evaluate(() =>
-      ((document.querySelector('.po-grid tbody tr input[data-fieldname="design"]') as HTMLInputElement)?.value || '').trim()),
-      { timeout: 25_000 }).toBe(DESIGN);
+    // Typing a variant code makes the page do two async things: the picker's own
+    // search for the text, and the variant lookup that sets the bank. Locally the
+    // search answers first; over a slow link it can land AFTER the bank is set and
+    // put the typed text back, so the design query filters on text and finds
+    // nothing. So: type, give it a fair wait, and if the design never fills, close
+    // the dropdown and type it once more at a human pace.
+    const bankBox = row0.locator('input[data-fieldname="bank"]');
+    const designValue = () => page.evaluate(() =>
+      ((document.querySelector('.po-grid tbody tr input[data-fieldname="design"]') as HTMLInputElement)?.value || '').trim());
+    await typeInto(page, bankBox, DESIGN);
+    let filled = await expect.poll(designValue, { timeout: 10_000 }).toBe(DESIGN).then(() => true).catch(() => false);
+    if (!filled) {
+      console.log('  design did not fill on the first try — retyping at a human pace');
+      await bankBox.press('Escape');
+      await bankBox.fill('');
+      await wait(page, 600);
+      await bankBox.click();
+      await bankBox.pressSequentially(DESIGN, { delay: 90 });
+      await wait(page, 900);
+      await bankBox.press('Escape');
+      filled = await expect.poll(designValue, { timeout: 25_000 }).toBe(DESIGN).then(() => true).catch(() => false);
+    }
+    expect(filled, `the design ${DESIGN} must resolve from its code`).toBeTruthy();
     await row0.locator('input[type="number"]').first().fill(String(n));
     await wait(page, 400);
     await click(page, row0.locator('button:has-text("Split")'));

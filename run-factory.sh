@@ -10,14 +10,21 @@ case "$TARGET" in
   dev)  BASE=http://development.localhost:8000
         SID() { docker exec -u frappe devcontainer-frappe-1 bash -lc "cd /workspace/development/frappe-bench && bench --site development.localhost browse --user $1 2>&1" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
   prod) BASE=https://erp.jdserveraccess.in
-        SID() { ssh newbox "docker exec -u frappe jewelima-prod-backend-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site development.localhost browse --user $1 2>&1'" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
+        # NEVER exec bench inside the live backend container: on 2026-09-03 every
+        # `bench browse` there killed gunicorn ("Worker failed to boot") — one restart
+        # per mint, 18 in four minutes, during a customer demo. Sessions for prod are
+        # minted in a queue-worker container, which has the bench but serves no HTTP.
+        [ "$PROD_MINT_OK" = "1" ] || { echo "prod minting is gated: set PROD_MINT_OK=1 once you have read the note above"; exit 1; }
+        SID() { ssh newbox "docker exec -u frappe jewelima-prod-queue-short-1 bash -lc 'cd /home/frappe/frappe-bench && bench --site development.localhost browse --user $1 2>&1'" | grep -oE 'sid=[a-f0-9]+' | head -1 | cut -d= -f2; } ;;
   *) echo "target must be dev or prod"; exit 1 ;;
 esac
 echo "minting sessions on $TARGET…"
 export BASE_URL="$BASE"
 # a container mid-restart answers nothing for a few seconds — try again rather than
 # calling a user missing who is only momentarily unreachable
-MINT() { local s; for i in 1 2 3 4 5 6; do s=$(SID "$1" 2>/dev/null); [ -n "$s" ] && { echo "$s"; return; }; sleep 5; done; }
+# ONE attempt each. The retry loop that used to live here turned one bad mint into
+# six, and on prod that meant six backend restarts per user.
+MINT() { SID "$1" 2>/dev/null; }
 export ERP_SID=$(MINT Administrator)
 export REENA_SID=$(MINT reena@jd.in) JOJO_SID=$(MINT jojokk@jd.in) SHEEJA_SID=$(MINT sheeja@jd.in) BALAN_SID=$(MINT balan@jd.in)
 for v in ERP_SID REENA_SID JOJO_SID SHEEJA_SID BALAN_SID; do

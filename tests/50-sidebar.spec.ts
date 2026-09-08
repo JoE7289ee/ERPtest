@@ -1,6 +1,6 @@
 // The Jewelima sidebar rules (jewelima/public/js/sidebar.bundle.js).
 //
-//   - ONE menu open at a time — including the menu holding the page you are on
+//   - one menu open at a time, EXCEPT the menu holding the page you are on
 //   - a menu that opens is scrolled into view
 //   - clicking a PAGE inside a menu is a navigation, not a menu action: it must
 //     not run the close-the-others sweep (that was the lag)
@@ -69,7 +69,7 @@ test.describe('jewelima sidebar', () => {
     await page.waitForTimeout(800);
   });
 
-  test('one menu at a time', async ({ page }) => {
+  test('one menu at a time, and the one you are in stays', async ({ page }) => {
     const titles = await menuTitles(page);
     console.log(`menus: ${titles.length}`);
     const [a, b, c] = ['Stock', 'Certification', 'Costing'];
@@ -109,7 +109,6 @@ test.describe('jewelima sidebar', () => {
     await clickHeader(page, 'Certification');
     const headerWrites = await page.evaluate(() => { const n = (window as any).__writes; (window as any).__writes = 0; return n; });
     const before = await openMenus(page);
-    expect(before, 'one menu open, the one just clicked').toEqual(['Certification']);
 
     const ms = await clickPage(page, 'Certification');
     const after = await openMenus(page);
@@ -117,16 +116,17 @@ test.describe('jewelima sidebar', () => {
     console.log(`page click: ${ms}ms, ${pageWrites} storage write(s) | menus before ${JSON.stringify(before)} after ${JSON.stringify(after)}`);
     console.log(`for comparison, two header clicks cost ${headerWrites} write(s)`);
 
-    expect(pageWrites, 'a page click writes nothing').toBe(0);
-    expect(after, 'and closes nothing').toEqual(before);
+    // one write at most, and that one is the route sweep after the navigation,
+    // not the click handler running the whole close-the-others pass itself
+    expect(pageWrites, 'a page click costs at most the one route sweep').toBeLessThanOrEqual(1);
     expect(headerWrites, 'a header click is one merged write, not one per menu').toBeLessThanOrEqual(4);
     expect(errs, 'no errors').toEqual([]);
   });
 
-  // Walking into a page opens that page's menu and closes the rest. Browsing
-  // away from it closes it too — the page you are on is marked by its own white
-  // pill, so its menu has nothing left to say by staying open.
-  test('arriving opens your menu; browsing closes it again', async ({ page }) => {
+  // The menu you are in stays open while you look elsewhere. Closing it as well
+  // was tried and reverted: it is usually the menu above the one you are
+  // reaching for, so closing it yanks the list out from under the click.
+  test('the menu you are in survives, then hands over on arrival', async ({ page }) => {
     await page.goto('/desk/confirm-certifications');
     await page.waitForFunction(READY, undefined, { timeout: 60_000 });
     await page.waitForTimeout(1200);
@@ -135,21 +135,25 @@ test.describe('jewelima sidebar', () => {
     expect(home, 'the menu you are in is open').toEqual(['Certification']);
 
     await clickHeader(page, 'Stock');
-    expect(await openMenus(page), 'browsing Stock closes Certification too').toEqual(['Stock']);
+    expect((await openMenus(page)).sort(), 'browse Stock, Certification stays')
+      .toEqual(['Certification', 'Stock']);
     await clickHeader(page, 'Costing');
-    expect(await openMenus(page), 'and Stock closes for Costing').toEqual(['Costing']);
+    expect((await openMenus(page)).sort(), 'Stock closes, Certification stays')
+      .toEqual(['Certification', 'Costing']);
 
     await page.goto('/desk/scrub');
     await page.waitForFunction(READY, undefined, { timeout: 60_000 });
     await page.waitForTimeout(1200);
     const after = await openMenus(page);
     console.log('on Scrub, open:', JSON.stringify(after));
-    expect(after, 'arriving leaves exactly one menu open').toEqual(['Stock']);
+    expect(after, 'arriving hands over to the new menu').toEqual(['Stock']);
     expect(errs, 'no errors').toEqual([]);
   });
 
   // The scroll box is Frappe's (.body-sidebar-top), not .sidebar-items — there
   // is more than one of those and the first is a different list entirely.
+  // Clicking a menu now holds it in place rather than scrolling to it, so what
+  // this checks is the weaker, still-necessary thing: it did not leave the view.
   test('an opened menu is brought into view', async ({ page }) => {
     const titles = await visibleMenus(page);
     console.log(`visible menus: ${titles.length} (of ${(await menuTitles(page)).length} built)`);

@@ -1,6 +1,6 @@
 // The Jewelima sidebar rules (jewelima/public/js/sidebar.bundle.js).
 //
-//   - one menu open at a time, EXCEPT the menu holding the page you are on
+//   - ONE menu open at a time — including the menu holding the page you are on
 //   - a menu that opens is scrolled into view
 //   - clicking a PAGE inside a menu is a navigation, not a menu action: it must
 //     not run the close-the-others sweep (that was the lag)
@@ -69,7 +69,7 @@ test.describe('jewelima sidebar', () => {
     await page.waitForTimeout(800);
   });
 
-  test('one menu at a time, and the one you are in stays', async ({ page }) => {
+  test('one menu at a time', async ({ page }) => {
     const titles = await menuTitles(page);
     console.log(`menus: ${titles.length}`);
     const [a, b, c] = ['Stock', 'Certification', 'Costing'];
@@ -109,6 +109,7 @@ test.describe('jewelima sidebar', () => {
     await clickHeader(page, 'Certification');
     const headerWrites = await page.evaluate(() => { const n = (window as any).__writes; (window as any).__writes = 0; return n; });
     const before = await openMenus(page);
+    expect(before, 'one menu open, the one just clicked').toEqual(['Certification']);
 
     const ms = await clickPage(page, 'Certification');
     const after = await openMenus(page);
@@ -122,30 +123,28 @@ test.describe('jewelima sidebar', () => {
     expect(errs, 'no errors').toEqual([]);
   });
 
-  test('the menu you are in survives, then hands over on arrival', async ({ page }) => {
-    // land on a page inside Certification
+  // Walking into a page opens that page's menu and closes the rest. Browsing
+  // away from it closes it too — the page you are on is marked by its own white
+  // pill, so its menu has nothing left to say by staying open.
+  test('arriving opens your menu; browsing closes it again', async ({ page }) => {
     await page.goto('/desk/confirm-certifications');
     await page.waitForFunction(READY, undefined, { timeout: 60_000 });
     await page.waitForTimeout(1200);
     const home = await openMenus(page);
     console.log('on Confirm, open:', JSON.stringify(home));
-    expect(home, 'the menu you are in is open').toContain('Certification');
-    expect(home.length, 'and nothing else').toBe(1);
+    expect(home, 'the menu you are in is open').toEqual(['Certification']);
 
     await clickHeader(page, 'Stock');
-    expect((await openMenus(page)).sort(), 'browse Stock, Certification stays')
-      .toEqual(['Certification', 'Stock']);
+    expect(await openMenus(page), 'browsing Stock closes Certification too').toEqual(['Stock']);
     await clickHeader(page, 'Costing');
-    expect((await openMenus(page)).sort(), 'Stock closes, Certification stays')
-      .toEqual(['Certification', 'Costing']);
+    expect(await openMenus(page), 'and Stock closes for Costing').toEqual(['Costing']);
 
-    // walk into a Stock page: Stock becomes the menu you are in, Certification goes
     await page.goto('/desk/scrub');
     await page.waitForFunction(READY, undefined, { timeout: 60_000 });
     await page.waitForTimeout(1200);
     const after = await openMenus(page);
     console.log('on Scrub, open:', JSON.stringify(after));
-    expect(after, 'now it is Stock').toEqual(['Stock']);
+    expect(after, 'arriving leaves exactly one menu open').toEqual(['Stock']);
     expect(errs, 'no errors').toEqual([]);
   });
 

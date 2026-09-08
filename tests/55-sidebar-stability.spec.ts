@@ -6,7 +6,7 @@ test('a clicked menu does not move out from under the pointer', async ({ page })
   await page.waitForFunction(READY, undefined, { timeout: 60_000 });
   await page.waitForTimeout(1200);
 
-  for (const t of ['Delivery', 'Costing', 'Records']) {
+  for (const t of ['Delivery', 'Costing', 'Party']) {   // MENUS: the accordion only moves these
     // Scroll it into view FIRST, let the scroll land, and only THEN read the
     // rect. Reading in the same breath as scrollIntoView gives the position the
     // element is heading for, not where it is when the click lands — which made

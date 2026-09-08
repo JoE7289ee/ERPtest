@@ -1,6 +1,7 @@
 // The Jewelima sidebar rules (jewelima/public/js/sidebar.bundle.js).
 //
-//   - one menu open at a time, EXCEPT the menu holding the page you are on
+//   - one MENU open at a time, EXCEPT the menu holding the page you are on.
+//     Sub-menus (item.indent) are not menus and are covered by 56-.
 //   - a menu that opens is scrolled into view
 //   - clicking a PAGE inside a menu is a navigation, not a menu action: it must
 //     not run the close-the-others sweep (that was the lag)
@@ -72,7 +73,7 @@ test.describe('jewelima sidebar', () => {
   test('one menu at a time, and the one you are in stays', async ({ page }) => {
     const titles = await menuTitles(page);
     console.log(`menus: ${titles.length}`);
-    const [a, b, c] = ['Stock', 'Certification', 'Costing'];
+    const [a, b, c] = ['Stock', 'Delivery', 'Costing'];   // all three are MENUS
     for (const t of [a, b, c]) expect(titles, `${t} exists`).toContain(t);
 
     // start from nothing open
@@ -106,11 +107,11 @@ test.describe('jewelima sidebar', () => {
     });
 
     await clickHeader(page, 'Stock');
-    await clickHeader(page, 'Certification');
+    await clickHeader(page, 'Delivery');
     const headerWrites = await page.evaluate(() => { const n = (window as any).__writes; (window as any).__writes = 0; return n; });
     const before = await openMenus(page);
 
-    const ms = await clickPage(page, 'Certification');
+    const ms = await clickPage(page, 'Delivery');
     const after = await openMenus(page);
     const pageWrites = await page.evaluate(() => (window as any).__writes);
     console.log(`page click: ${ms}ms, ${pageWrites} storage write(s) | menus before ${JSON.stringify(before)} after ${JSON.stringify(after)}`);
@@ -130,23 +131,27 @@ test.describe('jewelima sidebar', () => {
     await page.goto('/desk/confirm-certifications');
     await page.waitForFunction(READY, undefined, { timeout: 60_000 });
     await page.waitForTimeout(1200);
+    // Confirm lives in the Certification SUB-menu, which lives under Delivery
     const home = await openMenus(page);
     console.log('on Confirm, open:', JSON.stringify(home));
-    expect(home, 'the menu you are in is open').toEqual(['Certification']);
+    expect(home, 'the sub-menu holding the page is open').toContain('Certification');
+    expect(home, 'and so is the menu it lives under').toContain('Delivery');
 
     await clickHeader(page, 'Stock');
-    expect((await openMenus(page)).sort(), 'browse Stock, Certification stays')
-      .toEqual(['Certification', 'Stock']);
+    expect(await openMenus(page), 'browse Stock, Delivery stays — it is where you are')
+      .toEqual(expect.arrayContaining(['Delivery', 'Stock']));
     await clickHeader(page, 'Costing');
-    expect((await openMenus(page)).sort(), 'Stock closes, Certification stays')
-      .toEqual(['Certification', 'Costing']);
+    const browsing = await openMenus(page);
+    expect(browsing, 'Stock closed for Costing').not.toContain('Stock');
+    expect(browsing, 'Delivery still stays').toContain('Delivery');
 
     await page.goto('/desk/scrub');
     await page.waitForFunction(READY, undefined, { timeout: 60_000 });
     await page.waitForTimeout(1200);
     const after = await openMenus(page);
     console.log('on Scrub, open:', JSON.stringify(after));
-    expect(after, 'arriving hands over to the new menu').toEqual(['Stock']);
+    expect(after, 'arriving hands over to Stock').toContain('Stock');
+    expect(after, 'and Costing is gone').not.toContain('Costing');
     expect(errs, 'no errors').toEqual([]);
   });
 

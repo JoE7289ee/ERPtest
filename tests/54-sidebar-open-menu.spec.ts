@@ -14,7 +14,7 @@ const ratio = (a: string, b: string) => {
   return +((x + 0.05) / (y + 0.05)).toFixed(2);
 };
 
-test('the open menu is a red block on the green, and the page stays white', async ({ page }) => {
+test('the open menu wears a red pill; its pages and the green are untouched', async ({ page }) => {
   await page.goto('/desk/jewelima');
   await page.waitForFunction(READY, undefined, { timeout: 60_000 });
   await page.waitForTimeout(900);
@@ -33,32 +33,42 @@ test('the open menu is a red block on the green, and the page stays white', asyn
     const open = (sb.items || []).find((i: any) => i.wrapper?.attr?.('title') === 'Stock');
     const shut = (sb.items || []).find((i: any) => i.wrapper?.attr?.('title') === 'Costing');
     const cs = (el: Element, p = 'background-color') => getComputedStyle(el).getPropertyValue(p).trim();
+    const head = (s: any) => s.wrapper.find('> .standard-sidebar-item').get(0);
+    const pageRow = open.$nested_items.find('.standard-sidebar-item').get(0);
     const label = open.$nested_items.find('.sidebar-item-label').get(0);
+    const headLabel = open.wrapper.find('> .standard-sidebar-item .sidebar-item-label').get(0);
     const selected = document.querySelector('.body-sidebar .active-sidebar');
     return {
-      openBg: cs(open.wrapper.get(0)),
-      shutBg: cs(shut.wrapper.get(0)),
+      openHeadBg: cs(head(open)),
+      shutHeadBg: cs(head(shut)),
+      openBlockBg: cs(open.wrapper.get(0)),
+      pageRowBg: cs(pageRow),
       sidebarBg: cs(document.querySelector('.body-sidebar')!),
-      openHover: cs(open.wrapper.get(0), '--sidebar-hover-color'),
-      shutHover: cs(shut.wrapper.get(0), '--sidebar-hover-color'),
+      headColor: headLabel ? getComputedStyle(headLabel).color : '',
+      headText: headLabel?.textContent?.trim(),
       labelColor: label ? getComputedStyle(label).color : '',
       labelText: label?.textContent?.trim(),
       selectedBg: selected ? cs(selected) : '',
-      radius: cs(open.wrapper.get(0), 'border-radius'),
+      selectedRadius: selected ? cs(selected, 'border-radius') : '',
+      headRadius: cs(head(open), 'border-radius'),
+      headShadow: cs(head(open), 'box-shadow'),
     };
   });
   console.log(JSON.stringify(d, null, 1));
-  console.log('pages in the open menu:', ratio(d.labelColor, d.openBg));
-  console.log('open block vs sidebar :', ratio(d.openBg, d.sidebarBg));
-  console.log('selected vs open block:', ratio(d.selectedBg || 'rgb(255,255,255)', d.openBg));
+  console.log('the menu title on its pill:', ratio(d.headColor, d.openHeadBg));
+  console.log('pill vs the green        :', ratio(d.openHeadBg, d.sidebarBg));
 
-  const [r, g, b] = d.openBg.match(/\d+/g)!.slice(0, 3).map(Number);
-  expect(r, 'the open block leads red').toBeGreaterThan(g);
-  expect(r, 'the open block leads red').toBeGreaterThan(b);
-  expect(d.shutBg, 'a closed menu is left on the sidebar ground')
-    .toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
-  expect(ratio(d.labelColor, d.openBg), 'pages inside it still read').toBeGreaterThanOrEqual(4.5);
-  expect(d.openHover, 'hover follows the block').not.toBe(d.shutHover);
+  const [r, g, b] = d.openHeadBg.match(/\d+/g)!.slice(0, 3).map(Number);
+  expect(r, 'the pill leads red').toBeGreaterThan(g);
+  expect(r, 'the pill leads red').toBeGreaterThan(b);
+  const bare = /rgba\(0, 0, 0, 0\)|transparent/;
+  expect(d.shutHeadBg, 'a closed menu has no pill').toMatch(bare);
+  expect(d.openBlockBg, 'the block behind it is NOT painted').toMatch(bare);
+  expect(d.pageRowBg, 'a page inside the open menu is not painted either').toMatch(bare);
+  expect(d.selectedBg, 'the page you are on is still white').toBe('rgb(255, 255, 255)');
+  expect(d.headRadius, 'same pill shape as the white one').toBe(d.selectedRadius);
+  expect(d.headShadow, 'and the same small shadow').not.toBe('none');
+  expect(ratio(d.headColor, d.openHeadBg), 'the menu title reads on it').toBeGreaterThanOrEqual(4.5);
 
   await page.screenshot({ path: 'shots/sidebar-open-menu.png', clip: { x: 0, y: 0, width: 420, height: 800 } });
 });

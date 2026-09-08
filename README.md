@@ -308,3 +308,40 @@ run can skip them (see `SEED` in `20-order-desk`).
 landed, the dialog opened. Every real bug this suite has caught — discarded stone
 edits, a permission gap that stopped the order desk printing, materials silently
 dropped — was found by an assertion, never by a click that merely succeeded.
+
+### 41 — Scrub
+
+Proves the third outcome of a bench receipt: metal HANDED BACK as filings rather
+than written off. The identity under test is
+
+    weight out = weight in + scrub + loss
+
+so the spec does not merely check that a number renders — it reads the
+warehouses back and insists the gold split correctly between the Scrub warehouse
+and the bench's `-LOSS` one.
+
+```bash
+BASE_URL=http://development.localhost:8000 ERP_SID=$(sid Administrator) FAST=1 \
+  npx playwright test 41-scrub --project=chromium --reporter=list
+```
+
+Covers: the `+ Scrub` button existing only on Receipt · loss falling live as
+scrub is typed · turning the column off CLEARING the figures (a hidden box
+holding 2 g would post a scrub nobody could see) · the metal reaching both
+warehouses · the Scrub desk attributing it to the right bench and person · and
+Transfer Weight moving it out, with all four server guards refusing.
+
+Two things this spec learned the hard way, worth copying:
+
+* **`frappe.client.get_list` is paged and permission-filtered.** Reading Stock
+  Ledger Entry through it returned two identically truncated snapshots, so every
+  delta measured zero and the test "passed" a bug that was not there. Read
+  balances through the app's own endpoints (`get_scrub_board`,
+  `get_weight_transfer_context`) — that is what the desk reads anyway.
+* **Filter in the QUERY, not in a loop over the results.** An unordered slice of
+  106 open issues was all WAXING and CAD at 0 g, so a perfectly good candidate
+  further down was never seen and the test skipped itself silently.
+
+It works off a card that is already issued when one exists, and issues one when
+none does — a working floor usually has plenty out, and issuing is not what the
+spec is about.

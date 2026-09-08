@@ -14,7 +14,7 @@ const ratio = (a: string, b: string) => {
   return +((x + 0.05) / (y + 0.05)).toFixed(2);
 };
 
-test('the open menu wears a red pill; its pages and the green are untouched', async ({ page }) => {
+test('the open menu wears a deeper-green pill; nothing around it is painted', async ({ page }) => {
   await page.goto('/desk/jewelima');
   await page.waitForFunction(READY, undefined, { timeout: 60_000 });
   await page.waitForTimeout(900);
@@ -56,11 +56,13 @@ test('the open menu wears a red pill; its pages and the green are untouched', as
   });
   console.log(JSON.stringify(d, null, 1));
   console.log('the menu title on its pill:', ratio(d.headColor, d.openHeadBg));
-  console.log('pill vs the green        :', ratio(d.openHeadBg, d.sidebarBg));
+  console.log('pill vs the ground       :', ratio(d.openHeadBg, d.sidebarBg));
+  console.log('title on the pill vs at rest:', d.headColor, 'vs', d.labelColor);
 
   const [r, g, b] = d.openHeadBg.match(/\d+/g)!.slice(0, 3).map(Number);
-  expect(r, 'the pill leads red').toBeGreaterThan(g);
-  expect(r, 'the pill leads red').toBeGreaterThan(b);
+  expect(g, 'the pill is green, like the ground').toBeGreaterThan(r);
+  expect(g, 'the pill is green, like the ground').toBeGreaterThan(b);
+  expect(lum(d.openHeadBg), 'and deeper than the ground').toBeLessThan(lum(d.sidebarBg));
   const bare = /rgba\(0, 0, 0, 0\)|transparent/;
   expect(d.shutHeadBg, 'a closed menu has no pill').toMatch(bare);
   expect(d.openBlockBg, 'the block behind it is NOT painted').toMatch(bare);

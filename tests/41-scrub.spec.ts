@@ -30,9 +30,16 @@ const BENCHES = ['SETTING', 'FILING', 'GRINDING', 'PRE POLISH', 'FINAL POLISH'];
 // itself reads, which is also the thing worth testing.
 async function held(page: any) {
   const board = await frappeCall<any>(page, 'jewelima.jewelima.api.get_scrub_board', {});
-  const ctx = await frappeCall<any>(page, 'jewelima.jewelima.api.get_weight_transfer_context', {});
+  // the bench's own bucket: scrub screens deliberately cannot reach loss, so the
+  // one number this spec needs comes off the ledger rather than a scrub endpoint
+  const rows = await frappeCall<any>(page, 'frappe.client.get_list', {
+    doctype: 'Stock Ledger Entry',
+    filters: JSON.stringify([['is_cancelled', '=', 0], ['warehouse', 'like', '% -LOSS - %']]),
+    fields: JSON.stringify(['warehouse', 'actual_qty']),
+    limit_page_length: 0,
+  });
   const loss: Record<string, number> = {};
-  for (const src of ctx.sources || []) loss[src.warehouse] = Number(src.total || 0);
+  for (const r of rows || []) loss[r.warehouse] = (loss[r.warehouse] || 0) + Number(r.actual_qty || 0);
   return { scrub: Number(board.total_held || 0), collected: Number(board.collected || 0), loss };
 }
 
@@ -248,44 +255,68 @@ test('3 the Scrub desk attributes it to the bench and the person', async ({ page
   console.log(`  collected ${d.collected} g · held ${d.total_held} g · ${S.bench} / ${S.emp.name}`);
 });
 
-test('4 Transfer Weight moves it out, and refuses what it should', async ({ page }) => {
-  await gotoApp(page, 'transfer-weight');
-  const ctx = await frappeCall<any>(page, 'jewelima.jewelima.api.get_weight_transfer_context', {});
-  const src = (ctx.sources || []).find((s: any) => /^Scrub/.test(s.label) && s.total > 0.05);
-  test.skip(!src, 'nothing in the Scrub warehouse to move');
-  const item = src.items[0].item;
-  const target = (ctx.targets || []).find((t: any) => /Gold Issue/.test(t.label));
+test('4 the Scrub desk sends it on, and refuses what it should', async ({ page }) => {
+  await gotoApp(page, 'scrub');
+  const ctx = await frappeCall<any>(page, 'jewelima.jewelima.api.get_scrub_transfer_context', {});
+  test.skip(!(ctx.items || []).length || ctx.total < 0.05, 'nothing in the Scrub warehouse to send');
+  const item = ctx.items[0].item;
+  const target = (ctx.targets || []).find((t: any) => /Gold Issue/.test(t.label)) || ctx.targets[0];
   const move = 0.25;
 
-  await click(page, page.locator(`#page-transfer-weight .tw-card:has-text("Scrub")`).first(), 'take it from Scrub');
-  await page.locator('#page-transfer-weight .tw-qty').fill(String(move));
-  await page.locator('#page-transfer-weight .tw-qty').dispatchEvent('input');
-  await page.locator('#page-transfer-weight .tw-target').selectOption(target.warehouse);
-  await click(page, page.locator('#page-transfer-weight .tw-go'), `move ${move} g`);
+  // loss is a different job with its own screens — it must not be offered here
+  expect((ctx.targets || []).some((t: any) => / -LOSS - /.test(t.warehouse)),
+    'loss buckets are not a scrub destination').toBe(false);
+  expect((ctx.targets || []).some((t: any) => t.warehouse === ctx.warehouse),
+    'scrub cannot be sent to itself').toBe(false);
+
+  await page.locator('#page-scrub .sc-qty').fill(String(move));
+  await page.locator('#page-scrub .sc-qty').dispatchEvent('input');
+  await page.locator('#page-scrub .sc-target').selectOption(target.warehouse);
+  await click(page, page.locator('#page-scrub .sc-go'), `send ${move} g to ${target.label}`);
   const dlg = page.locator('.modal.show');
   await dlg.locator('.btn-primary:visible').first().click();
   await expect(page.locator('#alert-container .desk-alert.green .alert-message').last())
-    .toContainText(/moved/i, { timeout: 30_000 });
+    .toContainText(/sent to/i, { timeout: 30_000 });
 
-  const after = await frappeCall<any>(page, 'jewelima.jewelima.api.get_weight_transfer_context', {});
-  const src2 = (after.sources || []).find((s: any) => s.warehouse === src.warehouse);
-  expect(round3(src.total - src2.total), 'the source dropped by exactly what moved')
+  const after = await frappeCall<any>(page, 'jewelima.jewelima.api.get_scrub_transfer_context', {});
+  expect(round3(ctx.total - after.total), 'the Scrub warehouse dropped by exactly what was sent')
     .toBeCloseTo(move, 3);
 
   // the guards live on the SERVER — the page is a convenience, not the rule
   const refuse = async (args: any, why: string) => {
     const err = await page.evaluate(async (a) => {
       try {
-        await (window as any).frappe.call({ method: 'jewelima.jewelima.api.transfer_weight', args: a });
+        await (window as any).frappe.call({ method: 'jewelima.jewelima.api.transfer_scrub', args: a });
         return null;
       } catch (e: any) { return String(e?.message || e || 'threw'); }
     }, args);
     console.log(`  ${why.padEnd(34)} ${err ? 'refused' : 'ACCEPTED (wrong)'}`);
     expect(err, why).toBeTruthy();
   };
-  const fg = 'Finished Goods - ' + src.warehouse.split(' - ').pop();
-  await refuse({ source: fg, target: target.warehouse, item, qty: 0.1 }, 'source that does not collect');
-  await refuse({ source: src.warehouse, target: fg, item, qty: 0.1 }, 'target not allowed to receive');
-  await refuse({ source: src.warehouse, target: target.warehouse, item, qty: 9999 }, 'more than it holds');
-  await refuse({ source: src.warehouse, target: target.warehouse, item, qty: 0 }, 'zero weight');
+  const abbr = ctx.warehouse.split(' - ').pop();
+  await refuse({ target: `Setting -LOSS - ${abbr}`, item, qty: 0.1 }, 'a loss bucket as the target');
+  await refuse({ target: ctx.warehouse, item, qty: 0.1 }, 'scrub to itself');
+  await refuse({ target: target.warehouse, item, qty: 9999 }, 'more than it holds');
+  await refuse({ target: target.warehouse, item, qty: 0 }, 'zero weight');
+});
+
+test('5 Scrub History logs the card, the bench and the person', async ({ page }) => {
+  await gotoApp(page, 'scrub-history');
+  const h = await frappeCall<any>(page, 'jewelima.jewelima.api.get_scrub_history', { limit: 50 });
+  test.skip(!(h.rows || []).length, 'no scrub booked yet');
+  const r = h.rows[0];
+  for (const k of ['order_bag', 'qty', 'bench', 'employee_label', 'datetime']) {
+    expect(r[k], `the log carries ${k}`).toBeTruthy();
+  }
+  // the page shows what the API returned
+  await expect(page.locator('#page-scrub-history')).toContainText(r.order_bag);
+  await expect(page.locator('#page-scrub-history')).toContainText(r.bench);
+  await expect(page.locator('#page-scrub-history')).toContainText(r.employee_label);
+
+  // and the filters narrow it rather than emptying it
+  const one = await frappeCall<any>(page, 'jewelima.jewelima.api.get_scrub_history',
+    { bench: r.bench, limit: 50 });
+  expect(one.rows.length, 'filtering by bench keeps at least that row').toBeGreaterThan(0);
+  expect(one.rows.every((x: any) => x.bench === r.bench), 'and only that bench').toBe(true);
+  console.log(`  ${h.rows.length} handover(s), ${h.total} g · benches ${h.benches.join(', ')}`);
 });

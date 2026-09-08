@@ -286,6 +286,21 @@ Things learned mapping the pages, which the spec works around:
   the quoting. Copy a `.py` in and run it with `frappe-bench/env/bin/python`.
 - **Desk pages stay alive between visits.** Anything expecting fresh data needs
   `on_page_show`; a stale board is not necessarily a bug in the data.
+- **The sidebar's scroll box is `.body-sidebar-top`, not `.sidebar-items`.**
+  There is more than one `.sidebar-items` and `querySelector` picks a different
+  list; measuring against it gives nonsense offsets.
+- **Some sidebar items are built but never shown.** `frappe.app.sidebar.items`
+  carries a standard block that is not painted, and a hidden element's
+  `getBoundingClientRect()` is all zeros — so `top` reads as a large negative
+  number and a visibility assertion fails for the wrong reason. Filter on
+  `height > 0` before picking a menu to click.
+- **Logging in without a password**: `bench --site <site> browse --user
+  Administrator` prints a URL carrying a fresh `sid`. Pass it as `ERP_SID` and
+  `auth.setup.ts` takes the cookie path instead of the login form.
+- **Timing a click across `requestAnimationFrame` measures the frame, not the
+  work** — every click comes back ~30ms. To show that a handler got cheaper,
+  count what it actually does (wrap `Storage.prototype.setItem`, count DOM
+  mutations) rather than timing it.
 
 ## 7. Writing a spec
 

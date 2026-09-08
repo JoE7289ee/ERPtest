@@ -16,7 +16,7 @@ const ratio = (a: string, b: string) => {
   return +((x + 0.05) / (y + 0.05)).toFixed(2);
 };
 
-test('sidebar ground is darker, and everything on it still reads', async ({ page }) => {
+test('sidebar ground is a green that everything on it still reads against', async ({ page }) => {
   await page.goto('/desk/jewelima');
   await page.waitForFunction(READY, undefined, { timeout: 60_000 });
   await page.waitForTimeout(900);
@@ -69,5 +69,11 @@ test('sidebar ground is darker, and everything on it still reads', async ({ page
   expect(lum(toRgb(hex(d.hover))), 'hover is darker than the ground').toBeLessThan(lum(d.sidebarBg));
   expect(d.rootHover, 'the override did not leak out of the sidebar').not.toBe(d.hover);
 
-  await page.screenshot({ path: 'shots/sidebar-darker.png', clip: { x: 0, y: 0, width: 420, height: 800 } });
+  // it should read as green, not as a grey that happens to have a green name
+  const [r, g, b2] = d.sidebarBg.match(/\d+/g)!.slice(0, 3).map(Number);
+  console.log('rgb:', r, g, b2, '| green lead:', g - Math.max(r, b2));
+  expect(g, 'green leads red').toBeGreaterThan(r);
+  expect(g, 'green leads blue').toBeGreaterThan(b2);
+
+  await page.screenshot({ path: 'shots/sidebar-green.png', clip: { x: 0, y: 0, width: 420, height: 800 } });
 });

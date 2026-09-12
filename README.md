@@ -317,6 +317,13 @@ Things learned mapping the pages, which the spec works around:
   count what it actually does (wrap `Storage.prototype.setItem`, count DOM
   mutations) rather than timing it.
 
+- **Fold the sidebar before recording a wide grid.** At 1280 the menu takes 220px
+  and the grid columns are *squeezed*, not scrolled — on Quick Check the Qty box
+  came out 27px and In Wt 48px, unreadable on video. `collapseSidebar(page)` in
+  the harness does it. Two traps: the `expanded` class is not on `.body-sidebar`
+  (measure `.body-sidebar-container` instead — 220px open, 50px folded), and the
+  toggle button is hidden until the pointer is over the menu, so hover first.
+
 - **A grid that repaints on `change` eats `pressSequentially`.** Playwright's
   `fill('')` fires `change`; if the handler redraws the table, the input is
   replaced and the rest of the keystrokes go to a detached element. The values

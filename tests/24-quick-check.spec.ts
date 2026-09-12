@@ -4,7 +4,7 @@
 //
 //   BASE_URL=http://development.localhost:8000 ERP_SID=<sid> \
 //     npx playwright test 24-quick-check --project=chromium --reporter=list
-import { test, gotoHome, gotoApp, say, click, typeInto, pickLink, moveTo, spotlight, spotOff, pause } from './helpers/tutorial';
+import { test, expect, gotoHome, gotoApp, say, click, typeInto, pickLink, moveTo, collapseSidebar, spotlight, spotOff, pause } from './helpers/tutorial';
 import type { Page, Locator } from '@playwright/test';
 
 const RING_IN = '5.000', RING_OUT = '5.400';
@@ -60,6 +60,27 @@ test('quick check — two rings and two studs, priced and printed', async ({ pag
 
 	await gotoApp(page, 'repair-quick-check');
 	await pause(page, 900);
+
+	await collapseSidebar(page, 'Fold the menu away first — the sheet is wide and every column earns its place.');
+	await pause(page, 700);
+
+	// The complaint that prompted the fold: with the menu open the columns were
+	// squeezed, not scrolled — Qty came out 27px wide and In Wt 48px, too narrow
+	// to read 5.000 back. Assert the boxes are legible and the sheet needs no
+	// sideways scroll, so a column added later cannot quietly crush them again.
+	const fit = await page.evaluate(() => {
+		const w = (sel: string) => Math.round(
+			document.querySelector('.qc-body tr:first-child ' + sel)!.getBoundingClientRect().width);
+		return {
+			qty: w('.c-qty'), win: w('.c-win'), wout: w('.c-wout'),
+			box: (document.querySelector('.qc-gridbox') as HTMLElement).clientWidth,
+			table: (document.querySelector('table.qc-t') as HTMLElement).scrollWidth,
+		};
+	});
+	console.log('sheet fit:', JSON.stringify(fit));
+	expect(fit.win, `In Wt box is ${fit.win}px`).toBeGreaterThanOrEqual(62);
+	expect(fit.wout, `Out Wt box is ${fit.wout}px`).toBeGreaterThanOrEqual(62);
+	expect(fit.table, `sheet is ${fit.table}px in a ${fit.box}px box`).toBeLessThanOrEqual(fit.box + 1);
 
 	await spotlight(page, page.locator('.qc-head'),
 		'Who it is for, the board rate, GST, and a note for the paper. That is the whole header.', 4200);

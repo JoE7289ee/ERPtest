@@ -190,6 +190,32 @@ export async function pickLink(page: Page, inputLocator: Locator, value: string,
   await wait(page, 500);
 }
 
+/** Fold the left menu down to its icon rail. Wide grids — the order sheet, a
+ * repair quote — lose their right-hand columns to it at 1280, so a tutorial that
+ * teaches a grid should take the room back. No-op if it is already folded. */
+export async function collapseSidebar(page: Page, caption?: string) {
+  // Measure it rather than read a class: `.body-sidebar` keeps its 50px rail
+  // width either way and the `expanded` class is not on it, so the container is
+  // the only honest signal — 220px open, 50px folded.
+  const width = await page.evaluate(() => {
+    const el = document.querySelector('.body-sidebar-container') as HTMLElement | null;
+    return el ? el.getBoundingClientRect().width : 0;
+  });
+  if (width < 120) return;
+  // The toggle only appears while the pointer is over the menu, so go there first
+  // — which is what a person does anyway, and it reads well on the recording.
+  const cont = page.locator('.body-sidebar-container').first();
+  const b = await cont.boundingBox();
+  if (b) {
+    await page.mouse.move(Math.round(b.x + b.width / 2), Math.round(b.y + 140), { steps: 16 });
+    await page.evaluate(({ x, y }) => (window as any).__tut?.move(x, y),
+      { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + 140) });
+    await wait(page, 600);
+  }
+  await click(page, page.locator('.collapse-sidebar-link').first(), caption);
+  await wait(page, 900);
+}
+
 export const pause = (page: Page, ms = 800) => wait(page, ms);
 
 /** Draw an animated highlight box around a control (optionally circular), glide the

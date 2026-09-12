@@ -3,7 +3,7 @@
 //
 //   BASE_URL=http://development.localhost:8000 ERP_SID=<sid> \
 //     npx playwright test 25-board-rate --project=chromium --reporter=list
-import { test, gotoHome, gotoApp, say, click, typeInto, spotlight, spotOff, pause } from './helpers/tutorial';
+import { test, gotoHome, gotoApp, say, click, typeInto, collapseSidebar, spotlight, spotOff, pause } from './helpers/tutorial';
 import type { Page } from '@playwright/test';
 
 const row = (page: Page, i: number) => page.locator('.qc-body tr').nth(i);
@@ -16,6 +16,7 @@ test('board rate — fetching today’s gold rate on a repair quote', async ({ p
 
 	await gotoApp(page, 'repair-quick-check');
 	await pause(page, 900);
+	await collapseSidebar(page, 'Menu out of the way.');
 
 	await spotlight(page, page.locator('.qc-h-gold'),
 		'The Board Rate box. It opens on whatever this party was last charged — which may be days old.', 4400);

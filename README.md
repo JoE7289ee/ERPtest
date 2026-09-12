@@ -151,6 +151,21 @@ variant, `.sp-bk` basket. Basket: `.bk-line`, `.bk-q`, `.bk-rm` remark,
 
 ---
 
+**Quick Check** (`repair_quick_check.js`) — a repair quote; writes nothing.
+
+| What | Selector |
+|---|---|
+| page root | `#page-repair-quick-check` |
+| party / board rate / GST / note | `.qc-h-party input`, `.qc-h-gold input`, `.qc-h-gst input`, `.qc-h-note input` |
+| the grid, one row per line | `.qc-body tr` |
+| item type, qty, purity | `.c-item` (select), `.c-qty`, `.c-karat` (select) |
+| weights | `.c-win`, `.c-wout` — Added is derived, not typed |
+| work / stones on a row | `.c-work`, `.c-stones` (chips that open dialogs) |
+| the four money cells | `td.num` — Added, Work, Metal, Stone, Amount in that order |
+| rate boxes | `.qc-work .qc-wrate`, `.qc-stone .qc-srate` |
+| board picker rows | `.modal.show .qc-bpick` |
+| totals | `.qc-tiles` |
+
 ## 4. The flows worth testing
 
 **Order → floor** (`19-end-to-end` does all of this)
@@ -301,6 +316,24 @@ Things learned mapping the pages, which the spec works around:
   work** — every click comes back ~30ms. To show that a handler got cheaper,
   count what it actually does (wrap `Storage.prototype.setItem`, count DOM
   mutations) rather than timing it.
+
+- **A grid that repaints on `change` eats `pressSequentially`.** Playwright's
+  `fill('')` fires `change`; if the handler redraws the table, the input is
+  replaced and the rest of the keystrokes go to a detached element. The values
+  simply are not there afterwards and nothing errors. Quick Check did this — the
+  fix was in the app (redraw only when a row appears), not in the spec. Suspect
+  it whenever a snapshot at failure shows an empty sheet you know you filled.
+- **MultiSelectPills options carry no ARIA role.** Frappe Link fields render
+  `li[role=option]`, so `pickLink` works on them; the pills control does not, so
+  `getByRole('option')` never matches. Match the `li` by its own text instead —
+  see `pickPill` in `24-quick-check`.
+- **The pills dropdown stays open over whatever is beneath it.** After picking a
+  pill, blur the input and hide the `ul` before clicking anything lower in the
+  dialog, or the click times out on an element that is covered.
+- **`window.print()` cannot be recorded.** The browser's dialog is native and the
+  video shows nothing. To teach a print, catch the hidden print iframe with a
+  MutationObserver, stub its `print`, and restyle it visible — the viewer then
+  sees the actual paper. `24-quick-check` does this for the quotation.
 
 ## 7. Writing a spec
 

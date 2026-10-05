@@ -400,3 +400,49 @@ Two things this spec learned the hard way, worth copying:
 It works off a card that is already issued when one exists, and issues one when
 none does — a working floor usually has plenty out, and issuing is not what the
 spec is about.
+
+## 8. A throw-away test copy on :8002 (2026-10-05)
+
+Full-system testing does not belong on :8000. `ops/restore.sh` in the jewelima
+repo builds a copy from last night's backup in about two minutes:
+
+```bash
+ssh newbox 'bash ~/frappe_jewelima/development/frappe-bench/apps/jewelima/jewelima/ops/restore.sh \
+    --from /mnt/backup --name jewelima-test --port 8002'
+ssh newbox 'bash /tmp/fixgrant.sh jewelima-test'      # see the trap below
+ssh newbox '~/restore/jewelima-test/deploy.sh'        # pull today's code + migrate (full log kept)
+ssh -f -N -L 8002:localhost:8002 newbox               # then BASE_URL=http://localhost:8002
+. ./t8002-env.sh                                      # SID <user> mints a session there
+```
+
+Before testing, cut the copy off from the outside: blank `attendi_url`,
+`attendi_key`, the `jw_vapid_*` keys in its site_config, and set GST Settings
+`enable_api = 0`. The restore already stops the scheduler and mutes mail.
+
+**Traps**
+
+- `bench restore` grants the site's DB user to the BACKEND CONTAINER'S IP only.
+  The queue workers get "Access denied", every background job fails, and a lock
+  taken by a queued job (Module Profile on migrate) is never released — the next
+  migrate then dies in `setup_roles`. Grant `user@'%'` after a restore.
+- Administrator holds every role, `JW Tab` included, so on a 1280-wide window the
+  desk redirects to `/jt`. Open `/desk?desk=1` once (it is remembered) — or run
+  with `--no-deps` and set the cookie yourself, since `auth.setup.ts` waits on
+  `frappe.boot` and never sees it.
+- `factory_setup.py` must grant `JW Info` (the role was renamed from
+  `Jewelima Info`). Leg 5 of `30-factory` hangs when a bench has no roster: the
+  helper falls back to any Active employee and the picker never offers them.
+
+**Three kinds of test that found things**
+
+1. `deploytest/` — `snap.py` hashes every settings/master row; run it before and
+   after `deploy.sh` and `diff.py` shows what a deploy rewrote. `mutate.py` edits,
+   deletes and trims a row in every Jewelima list (back the DB up first), then
+   `verify.py` after a deploy shows which edits the deploy undid — and a crash in
+   the migrate log shows which seeder cannot survive an edited row.
+2. `tests/_t8002_smoke.spec.ts` — opens every page a user's roles allow and
+   records JS errors, failed requests and error dialogs. `smoke-roles.sh` runs it
+   for sixteen real users. Testing as Administrator hides the permission errors.
+3. `api8002/jw.py` — act as a real user through the pages' own whitelisted
+   calls, each step tried FIRST as a user with no business doing it
+   (`guarded(...)`). Most floor and delivery calls had no role check at all.

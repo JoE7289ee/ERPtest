@@ -32,7 +32,7 @@ if not frappe.db.exists("User", "balan@jd.in"):
 u = frappe.get_doc("User", "balan@jd.in")
 u.set("roles", [r for r in u.roles if r.role != "Jewelima Purchase"])
 have = {r.role for r in u.roles}
-for role in ("JW Stone Admin", "Jewelima Info"):
+for role in ("JW Stone Admin", "JW Info"):
     if role not in have: u.append("roles", {"role": role})
 u.save(ignore_permissions=True)
 print("Balan:", sorted(r.role for r in u.roles if r.role.startswith(("JW", "Jewelima"))))

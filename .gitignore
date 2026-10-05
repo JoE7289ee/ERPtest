@@ -12,3 +12,12 @@ ERPtest-main.tar.gz
 *.mp4
 *.webm
 .factory/
+
+# scratch from the :8002 runs
+api8002/.sessions.json
+api8002/*.json
+smoke-*.json
+smoke-*.log
+smoke-roles.progress
+factory*.log
+test-results-*/

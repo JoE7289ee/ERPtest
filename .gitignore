@@ -21,3 +21,5 @@ smoke-*.log
 smoke-roles.progress
 factory*.log
 test-results-*/
+recheck-*.json
+scan-poke.*

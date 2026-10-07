@@ -446,3 +446,14 @@ Before testing, cut the copy off from the outside: blank `attendi_url`,
 3. `api8002/jw.py` — act as a real user through the pages' own whitelisted
    calls, each step tried FIRST as a user with no business doing it
    (`guarded(...)`). Most floor and delivery calls had no role check at all.
+
+### Bug-hunt fixes (from 7 Oct 2026)
+
+The line-by-line bug hunt left a list in `~/Desktop/Jewelima_bug_hunt/` (`Jewelima_bug_list.html`, `fixes.json` marks what is fixed; `python3 build_list.py` rebuilds the page). Every fix is proved on :8002 before :8000:
+
+- `api8002/crit_2026_10_07.py` (+ `_repair.py`) — server-level checks of the critical fixes, run in the TEST bench console:
+  `scp api8002/crit_2026_10_07.py newbox:/tmp/t.py && ssh newbox 'docker cp /tmp/t.py jewelima-test-queue-short-1:/tmp/ && docker exec -i jewelima-test-queue-short-1 bash -lc "cd /home/frappe/frappe-bench && bench --site development.localhost console < /tmp/t.py"' | grep RES`
+  A console script must have NO blank lines inside `def main()` — IPython ends the block at the first one.
+- `api8002/chain21.py` — the same through real requests as real users (a ledger call with no commit of its own is still saved at the end of the request; a batch keeps its good cards and refuses a bad one whole).
+- To put uncommitted work on :8002: run its `deploy.sh` (brings it to the pushed head), then `scp` the changed files into `~/restore/jewelima-test/apps/jewelima/...` and restart the `jewelima-test-` backend/queue containers.
+- To prove "the stock move failed": swap `api._stock_move` for a function that raises, call the method, `frappe.db.rollback()` as the request would, and count the ledger rows.

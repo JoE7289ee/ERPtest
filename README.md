@@ -456,4 +456,6 @@ The line-by-line bug hunt left a list in `~/Desktop/Jewelima_bug_hunt/` (`Jeweli
   A console script must have NO blank lines inside `def main()` — IPython ends the block at the first one.
 - `api8002/chain21.py` — the same through real requests as real users (a ledger call with no commit of its own is still saved at the end of the request; a batch keeps its good cards and refuses a bad one whole).
 - To put uncommitted work on :8002: run its `deploy.sh` (brings it to the pushed head), then `scp` the changed files into `~/restore/jewelima-test/apps/jewelima/...` and restart the `jewelima-test-` backend/queue containers.
+- `api8002/repair_lots_2026_10_07.py` (24 checks) + `tests/_t8002_repair_lots.spec.ts` (browser) — repair shop and stone-lot closing. Everything they make is named `ZZT…`; a billed repair cannot be deleted from the desk, so the console script clears all `ZZT` leftovers when it starts — run it after the browser spec.
+- A stone lot needs a quality (`api._stocked_diamond_qualities()`), and its sieves cannot add up to more than the claimed carats.
 - To prove "the stock move failed": swap `api._stock_move` for a function that raises, call the method, `frappe.db.rollback()` as the request would, and count the ledger rows.

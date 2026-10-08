@@ -41,6 +41,12 @@ test('voucher columns follow the item', async ({ page, context }) => {
   await expect(page.locator('.t-dm')).toContainText('2.500 ct');
   await expect(page.locator('.t-gross')).toContainText('0.000 gm');
 
+  // only the columns the items need: loose diamonds are weight, rate, amount
+  const head = (t: string) => page.locator('.jv-g thead th', { hasText: t });
+  await expect(head('Gross weight')).toBeVisible();
+  await expect(head('Rate').first()).toBeVisible();
+  for (const t of ['Purity %', 'PS weight', 'DMD weight', 'CS weight', 'Labour calculation type', 'Service rate', 'Pure weight']) await expect(head(t)).toBeHidden();
+
   await set(1, 'GOLD JEWELLERY 18KT');           // no DMD; CZ / CS / PS stones
   await expect(cell(1, 'purity')).toBeEnabled();
   await expect(cell(1, 'ps_wt')).toBeEnabled();
@@ -48,9 +54,17 @@ test('voucher columns follow the item', async ({ page, context }) => {
   await expect(cell(1, 'dm_wt')).toBeDisabled();
   await expect(cell(1, 'labour_type')).toBeEnabled();
 
+  // gold jewellery brings purity, PS, CS and labour in — still no DMD column — and they are closed on the diamond line
+  await expect(head('Purity %')).toBeVisible();
+  await expect(head('PS weight')).toBeVisible();
+  await expect(head('DMD weight')).toBeHidden();
+  await expect(cell(0, 'purity')).toBeDisabled();
   await set(2, 'DIAMOND ORNAMENTS 18KT');        // everything
   for (const k of ['gross_wt', 'purity', 'rate', 'ps_wt', 'dm_wt', 'dm_rate', 'cs_wt', 'service_rate']) await expect(cell(2, k)).toBeEnabled();
 
+  await expect(head('DMD weight')).toBeVisible();
+  await expect(cell(0, 'dm_wt')).toBeDisabled();
+  await expect(cell(1, 'dm_wt')).toBeDisabled();
   await set(3, 'ZZT ONE-OFF CHARGE');            // not on the list: left open
   await expect(cell(3, 'dm_wt')).toBeEnabled();
   await page.screenshot({ path: `${process.env.SHOT_DIR || 'shots'}/ja-voucher-items.png` });

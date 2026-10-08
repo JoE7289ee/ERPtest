@@ -32,6 +32,15 @@ test('general ledger is a plain searchable list', async ({ page, context }) => {
     await expect(page.locator('table.rt thead')).toContainText('Balance');
     await expect(page.locator('.gl-count')).toContainText('Closing');
   }
+  // a voucher number opens OUR page for it, not ERPNext's form
+  const v = page.locator('table.rt tbody a.ja-vlink').first();
+  if (await v.count()) {
+    const no = (await v.innerText()).trim();
+    await v.click();
+    await expect.poll(() => page.url(), { timeout: 15_000 }).toContain('/ja-');
+    expect(decodeURIComponent(page.url())).toContain(no);
+    await page.goBack();
+  }
   await page.screenshot({ path: `${process.env.SHOT_DIR || 'shots'}/ja-general-ledger.png` });
   expect(errors).toEqual([]);
 });

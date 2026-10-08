@@ -47,6 +47,13 @@ test('voucher columns follow the item', async ({ page, context }) => {
   await expect(head('Rate').first()).toBeVisible();
   for (const t of ['Purity %', 'PS weight', 'DMD weight', 'CS weight', 'Labour calculation type', 'Service rate', 'Pure weight']) await expect(head(t)).toBeHidden();
 
+  // the totals follow: diamonds only — no gram totals, no pure weight, no service amount
+  await expect(page.locator('.t-dm')).toBeVisible();
+  await expect(page.locator('.t-dmamt')).toBeVisible();
+  for (const c of ['.t-gross', '.t-net', '.t-pure', '.f-svc', '.f-net', '.f-round']) await expect(page.locator(c)).toBeHidden();
+  await expect(page.locator('.t-total')).toContainText('1,00,000.00');
+  await expect(page.locator('.f-grand')).toContainText('1,03,000.00');
+
   await set(1, 'GOLD JEWELLERY 18KT');           // no DMD; CZ / CS / PS stones
   await expect(cell(1, 'purity')).toBeEnabled();
   await expect(cell(1, 'ps_wt')).toBeEnabled();
@@ -59,6 +66,7 @@ test('voucher columns follow the item', async ({ page, context }) => {
   await expect(head('PS weight')).toBeVisible();
   await expect(head('DMD weight')).toBeHidden();
   await expect(cell(0, 'purity')).toBeDisabled();
+  for (const c of ['.t-gross', '.t-net', '.t-pure', '.f-svc']) await expect(page.locator(c)).toBeVisible();
   await set(2, 'DIAMOND ORNAMENTS 18KT');        // everything
   for (const k of ['gross_wt', 'purity', 'rate', 'ps_wt', 'dm_wt', 'dm_rate', 'cs_wt', 'service_rate']) await expect(cell(2, k)).toBeEnabled();
 

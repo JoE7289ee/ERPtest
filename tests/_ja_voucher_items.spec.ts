@@ -16,6 +16,20 @@ test('voucher columns follow the item', async ({ page, context }) => {
   const cell = (i: number, k: string) => page.locator(`.jv-g tr[data-i="${i}"] [data-k="${k}"]`);
   const set = async (i: number, name: string) => { await item(i).fill(name); await item(i).dispatchEvent('change'); };
 
+  // typing goes forwards: key by key, as a person types (the box must not be redrawn under the cursor)
+  await item(0).click();
+  await page.keyboard.type('ZZT TYPED', { delay: 30 });
+  await expect(item(0)).toHaveValue('ZZT TYPED');
+  await cell(0, 'gross_wt').click();
+  await page.keyboard.type('12.345', { delay: 30 });
+  await expect(cell(0, 'gross_wt')).toHaveValue('12.345');
+  await cell(0, 'rate').click();
+  await page.keyboard.type('6789', { delay: 30 });
+  await expect(cell(0, 'rate')).toHaveValue('6789');
+  await expect(page.locator('.jv-g tr[data-i="0"] .c-amt')).toContainText('83,810.21');
+  await cell(0, 'gross_wt').fill('');
+  await cell(0, 'rate').fill('');
+
   await set(0, 'DIAMOND');                       // loose stone: carats and a rate
   await expect(cell(0, 'gross_wt')).toBeEnabled();
   await expect(cell(0, 'rate')).toBeEnabled();

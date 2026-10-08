@@ -4,6 +4,7 @@
 import { test, expect } from '@playwright/test';
 test.use({ video: 'off' });
 const BASE = process.env.BASE_URL || 'http://development.localhost:8000';
+const SUP = process.env.JA_SUPPLIER || 'ZZT TDS SUPPLIER';      // it never saves: safe to point at a real supplier
 test('TDS on a goods purchase', async ({ page, context }) => {
   await context.addCookies([{ name: 'sid', value: process.env.SMOKE_SID!, url: BASE }]);
   const errors: string[] = [];
@@ -13,13 +14,13 @@ test('TDS on a goods purchase', async ({ page, context }) => {
   const item = page.locator('.jv-g tr[data-i="0"] input.item');
   await expect(item).toBeVisible({ timeout: 60_000 });
   await expect(page.locator('datalist option[value="DIAMOND"]')).toHaveCount(1, { timeout: 20_000 });
-  const bought = await page.evaluate(() => new Promise<number>((res) => (window as any).frappe.call({ method: 'j_accounts.voucher.get_party',
-    args: { kind: 'purchase', party: 'ZZT TDS SUPPLIER' } }).then((r: any) => res(r.message.tds.bought), () => res(-1))));
-  test.skip(bought < 0, 'no ZZT TDS SUPPLIER on this site');
+  const bought = await page.evaluate((sup) => new Promise<number>((res) => (window as any).frappe.call({ method: 'j_accounts.voucher.get_party',
+    args: { kind: 'purchase', party: sup } }).then((r: any) => res(r.message.tds.bought), () => res(-1))), SUP);
+  test.skip(bought < 0, 'no such supplier on this site');
   const box = page.locator('.h-party input').first();
   await box.click();
   await Promise.all([page.waitForResponse((r) => r.url().includes('get_party')),
-    (async () => { await page.keyboard.type('ZZT TDS SUPPLIER', { delay: 20 }); await page.keyboard.press('Tab'); })()]);
+    (async () => { await page.keyboard.type(SUP, { delay: 20 }); await page.keyboard.press('Tab'); })()]);
   await item.fill('DIAMOND'); await item.dispatchEvent('change');
   await page.locator('.jv-g tr[data-i="0"] [data-k="gross_wt"]').fill('200');
   await page.locator('.jv-g tr[data-i="0"] [data-k="rate"]').fill('60000');

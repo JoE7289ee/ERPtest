@@ -19,6 +19,19 @@ test('general ledger is a plain searchable list', async ({ page, context }) => {
   expect(resp.ok()).toBeTruthy();
   await expect(page.locator('table.rt tbody')).toContainText('No entries match');
   await page.locator('input.r-q').fill('');
+  // a party is a ledger: the head shows under Ledger, its receivable / payable account under Group
+  await expect(page.locator('table.rt thead')).toContainText('Ledger');
+  await expect(page.locator('table.rt thead')).toContainText('Group');
+  await expect(page.locator('table.rt thead')).not.toContainText('Party');
+  await page.getByText('Last financial year').click().catch(() => {});
+  const first = page.locator('table.rt tbody a.gl-a').first();
+  if (await first.count()) {
+    const name = (await first.innerText()).trim();
+    await Promise.all([page.waitForResponse((r) => r.url().includes('general_ledger')), first.click()]);
+    await expect(page.locator('.gl-led input')).toHaveValue(name);
+    await expect(page.locator('table.rt thead')).toContainText('Balance');
+    await expect(page.locator('.gl-count')).toContainText('Closing');
+  }
   await page.screenshot({ path: `${process.env.SHOT_DIR || 'shots'}/ja-general-ledger.png` });
   expect(errors).toEqual([]);
 });

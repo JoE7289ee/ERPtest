@@ -25,6 +25,8 @@ test('card with no variant clears the old variant', async ({ page, context }) =>
   await opt.waitFor({ state: 'visible', timeout: 20_000 });
   await opt.click();
   await expect.poll(design, { timeout: 20_000 }).toBe('');
+  // and everything that came from it: no weights left, the row no longer green
+  await expect.poll(async () => (await row0.innerText()).replace(/\s+/g, ' '), { timeout: 10_000 }).not.toMatch(/NOSEPIN|\d\.\d{3}/);
   await page.screenshot({ path: 'test-results/bank-swap.png' });
   expect(errors).toEqual([]);
 });

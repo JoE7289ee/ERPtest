@@ -24,14 +24,17 @@ test('TDS on a goods purchase', async ({ page, context }) => {
   await item.fill('DIAMOND'); await item.dispatchEvent('change');
   await page.locator('.jv-g tr[data-i="0"] [data-k="gross_wt"]').fill('200');
   await page.locator('.jv-g tr[data-i="0"] [data-k="rate"]').fill('60000');
+  // DIAMOND brings its own GST: 1.5 %, shown in a closed box
+  await expect(page.locator('.h-gst')).toBeDisabled();
+  await expect(page.locator('.h-gst')).toHaveValue('1.5');
   const over = Math.min(Math.max(bought + 12000000 - 5000000, 0), 12000000), tds = Math.round(over * 0.001);
   await expect(page.locator('.h-tds')).toHaveValue('1');
   await expect(page.locator('.h-tdson')).toHaveValue(String(over));
   await expect(page.locator('.f-tds')).toContainText(tds.toLocaleString('en-IN') + '.00');
-  await expect(page.locator('.f-grand')).toContainText((12360000 - tds).toLocaleString('en-IN'));
+  await expect(page.locator('.f-grand')).toContainText((12180000 - tds).toLocaleString('en-IN'));
   await page.locator('.h-tds').selectOption('0');                       // switched off by hand
   await expect(page.locator('.f-tds')).toBeHidden();
-  await expect(page.locator('.f-grand')).toContainText('1,23,60,000.00');
+  await expect(page.locator('.f-grand')).toContainText('1,21,80,000.00');
   await page.screenshot({ path: `${process.env.SHOT_DIR || 'shots'}/ja-purchase-tds.png` });
   expect(errors).toEqual([]);
 });

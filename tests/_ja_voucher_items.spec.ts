@@ -52,7 +52,7 @@ test('voucher columns follow the item', async ({ page, context }) => {
   await expect(page.locator('.t-dmamt')).toBeVisible();
   for (const c of ['.t-gross', '.t-net', '.t-pure', '.f-svc', '.f-net', '.f-round']) await expect(page.locator(c)).toBeHidden();
   await expect(page.locator('.t-total')).toContainText('1,00,000.00');
-  await expect(page.locator('.f-grand')).toContainText('1,03,000.00');
+  await expect(page.locator('.f-grand')).toContainText('1,01,500.00');      // DIAMOND is 1.5 %
 
   await set(1, 'GOLD JEWELLERY 18KT');           // no DMD; CZ / CS / PS stones
   await expect(cell(1, 'purity')).toBeEnabled();
